@@ -290,10 +290,10 @@ def modify_incar_magmoms(
             if atom_type in provided_atom_types:
                 magmom = [provided_magmoms[provided_atom_types.index(atom_type)]] * n
 
-            modified_magmoms.append(magmom)
+            modified_magmoms.extend(magmom)
 
-        # flatten magmoms and update the value in INCAR
-        incar["MAGMOM"] = [m for mag in modified_magmoms for m in mag]
+        # Update the value in INCAR
+        incar["MAGMOM"] = modified_magmoms
 
         modifed_incars.append(incar)
 
