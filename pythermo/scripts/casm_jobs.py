@@ -240,19 +240,16 @@ def main():
             f.write(submit_str)
 
     if args.command == "magmom":
-        print(args)
         selection = _configuration_list(args.infile)
 
         with open(args.magmoms, "r") as f:
             new_magmoms = json.load(f)
 
         modified_incars = pyjobs.casm_jobs.modify_incar_magmoms(
-            selection, new_magmoms, args.calctype
+            selection, new_magmoms, args.calctype, False
         )
 
-        [print(x) for x in modified_incars]
-
-        # pyjobs.casm_jobs.write_incars(selection, modified_incars, args.calctype)
+        pyjobs.casm_jobs.write_incars(selection, modified_incars, args.calctype)
 
 
 if __name__ == "__main__":
