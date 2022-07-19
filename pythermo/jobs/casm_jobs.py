@@ -283,17 +283,17 @@ def modify_incar_magmoms(
         modified_magmoms = []
         index = 0
         for n, atom_type in zip(poscar.natoms, poscar.site_symbols):
-            magmom = incar["magmom"][index : index + n - 1]
+            magmom = incar["MAGMOM"][index : index + n]
             index += n
 
             # change magmom
             if atom_type in provided_atom_types:
-                magmom = provided_magmoms[provided_atom_types.index(atom_type)] * n
+                magmom = [provided_magmoms[provided_atom_types.index(atom_type)]] * n
 
             modified_magmoms.append(magmom)
 
         # flatten magmoms and update the value in INCAR
-        incar["magmom"] = [m for mag in modified_magmoms for m in mag]
+        incar["MAGMOM"] = [m for mag in modified_magmoms for m in mag]
 
         modifed_incars.append(incar)
 
