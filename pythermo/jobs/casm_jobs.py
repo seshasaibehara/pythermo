@@ -283,7 +283,6 @@ def modify_incar_magmoms(
         modified_magmoms = []
         index = 0
         for n, atom_type in zip(poscar.natoms, poscar.site_symbols):
-            print(n)
             # change magmom
             if atom_type in provided_atom_types:
                 magmom = [provided_magmoms[provided_atom_types.index(atom_type)]] * n
