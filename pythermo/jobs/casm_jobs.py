@@ -298,3 +298,45 @@ def modify_incar_magmoms(
         modifed_incars.append(incar)
 
     return modifed_incars
+
+
+def get_casm_commands_to_turn_off_given_configurations(
+    configurations_info: dict, casm_executable="ccasm"
+):
+    """TODO: Docstring for get_casm_commands_to_turn_off_given_configurations.
+
+    Parameters
+    ----------
+    configurations_info : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    scels = configurations_info["scelnames"]
+
+    config_range_for_scel = [
+        list(range(config_range["start"], config_range["stop"] + 1))
+        if type(config_range) is dict
+        else config_range
+        for config_range in configurations_info["range"]
+    ]
+
+    config_names = [
+        "" + str(scel) + "/" + str(config_number)
+        for scel, config_range in zip(scels, config_range_for_scel)
+        for config_number in config_range
+    ]
+
+    casm_commands = [
+        casm_executable
+        + " select --set-off 're(configname, "
+        + '"'
+        + config_name
+        + '"'
+        + ")'"
+        for config_name in config_names
+    ]
+
+    return casm_commands
