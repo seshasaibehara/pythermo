@@ -43,13 +43,8 @@ def _configuration_list(filename):
     TODO
 
     """
-    try:
-        with open(filename, "r") as f:
-            selection = json.load(f)
-    except ValueError:
-        raise ValueError(
-            "Could not open " + filename + " file. Please check the file exists"
-        )
+    with open(filename, "r") as f:
+        selection = json.load(f)
 
     return selection
 
@@ -198,6 +193,21 @@ def main():
     )
     _add_calctype_argument(magmoms)
 
+    # setoff given list of configurations
+    setoff = subparser.add_parser(
+        "setoff",
+        help="ccasm select --set-off given range of configurations in a supercell",
+    )
+    setoff.add_argument(
+        "--infile", "-i", required=True, type=str, help="Path to input file"
+    )
+    setoff.add_argument(
+        "--executable",
+        nargs="?",
+        default="ccasm",
+        help='path to casm executable (default = "ccasm")',
+    )
+
     # parse all args
     args = parser.parse_args()
 
@@ -250,6 +260,21 @@ def main():
         )
 
         pyjobs.casm_jobs.write_incars(selection, modified_incars, args.calctype)
+
+    if args.command == "setoff":
+
+        # read config info
+        with open(args.infile, "r") as f:
+            configurations_info = json.load(f)
+
+        # get casm commands
+        casm_commands = (
+            pyjobs.casm_jobs.get_casm_commands_to_turn_off_given_configurations(
+                configurations_info, args.executable
+            )
+        )
+
+        [os.system(x) for x in casm_commands]
 
 
 if __name__ == "__main__":
