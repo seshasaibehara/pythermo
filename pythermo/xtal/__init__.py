@@ -1,3 +1,3 @@
-from . import strain
+from . import strain, neb
 
-__all__ = ["strain"]
+__all__ = ["strain", "neb"]
