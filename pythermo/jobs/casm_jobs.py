@@ -1,5 +1,9 @@
 import os
+import json
+import numpy as np
+import pymatgen.core as pmgcore
 import pymatgen.io.vasp as pmgvasp
+from pymatgen.io.cif import CifWriter
 
 
 def _get_file_paths_as_a_string(file_type, calctype_dirs):
@@ -340,3 +344,81 @@ def get_casm_commands_to_turn_off_given_configurations(
     ]
 
     return casm_commands
+
+
+def visualize_magnetic_moments_from_casm_structure(
+    selected_configurations, noncollinear=False
+):
+    """TODO: Docstring for visualize_magnetic_moments.
+
+    Parameters
+    ----------
+    selected_configurations : TODO
+    calctype : TODO, optional
+
+    Returns
+    -------
+    TODO
+
+    """
+    config_names = _get_config_names(selected_configurations)
+    casm_structure_files = [
+        os.path.join("training_data", config_name, "structure.json")
+        for config_name in config_names
+    ]
+
+    casm_structures = []
+    for structure_file in casm_structure_files:
+        with open(structure_file, "r") as f:
+            casm_structures.append(json.load(f))
+
+    lattices_of_all_configs = [
+        np.array(casm_structure["lattice_vectors"])
+        for casm_structure in casm_structures
+    ]
+
+    cart_coords_of_all_configs = [
+        np.array(casm_structure["atom_coords"]) for casm_structure in casm_structures
+    ]
+
+    atom_types_of_all_configs = [
+        casm_structure["atom_type"] for casm_structure in casm_structures
+    ]
+
+    if not noncollinear:
+        magspin_values_for_all_configs = [
+            np.append(
+                np.zeros((len(casm_structure["atom_type"]), 2)),
+                np.array(casm_structure["mol_properties"]["Cmagspin"]["value"]),
+                axis=1,
+            )
+            for casm_structure in casm_structures
+        ]
+    else:
+        magspin_values_for_all_configs = [
+            np.array(casm_structure["mol_properties"]["Cmagspin"]["value"])
+            for casm_structure in casm_structures
+        ]
+
+    pymatgen_structures = [
+        pmgcore.Structure(
+            lattice,
+            atom_types,
+            cart_coords,
+            site_properties={"magmom": magspins},
+            coords_are_cartesian=True,
+        )
+        for lattice, cart_coords, atom_types, magspins in zip(
+            lattices_of_all_configs,
+            cart_coords_of_all_configs,
+            atom_types_of_all_configs,
+            magspin_values_for_all_configs,
+        )
+    ]
+
+    mcifs = [
+        CifWriter(pmg_structure, write_magmoms=True)
+        for pmg_structure in pymatgen_structures
+    ]
+
+    return mcifs

@@ -180,18 +180,19 @@ def main():
     )
 
     # modify incars
-    magmoms = subparser.add_parser(
-        "magmom", help="Change magmoms in INCAR for a given list of configurations"
+    modify_magmoms = subparser.add_parser(
+        "modify_magmoms",
+        help="Change magmoms in INCAR for a given list of configurations",
     )
-    _add_infile_argument(magmoms)
-    magmoms.add_argument(
+    _add_infile_argument(modify_magmoms)
+    modify_magmoms.add_argument(
         "--magmoms",
         "-m",
         type=str,
         required=True,
         help="Path to magnetic moments file in json format (each atom type SHOULD have the same value of magmom)",
     )
-    _add_calctype_argument(magmoms)
+    _add_calctype_argument(modify_magmoms)
 
     # setoff given list of configurations
     setoff = subparser.add_parser(
@@ -207,6 +208,12 @@ def main():
         default="ccasm",
         help='path to casm executable (default = "ccasm")',
     )
+
+    # visualize magmoms
+    visualize_magmoms = subparser.add_parser(
+        "visualize_magmoms", help="Writes .mcif file for given configurations"
+    )
+    _add_infile_argument(visualize_magmoms)
 
     # parse all args
     args = parser.parse_args()
@@ -249,7 +256,7 @@ def main():
         with open(args.outfile, "w") as f:
             f.write(submit_str)
 
-    if args.command == "magmom":
+    if args.command == "modify_magmoms":
         selection = _configuration_list(args.infile)
 
         with open(args.magmoms, "r") as f:
@@ -275,6 +282,22 @@ def main():
         )
 
         [os.system(x) for x in casm_commands]
+
+    if args.command == "visualize_magmoms":
+        selection = _configuration_list(args.infile)
+        file_names = [
+            os.path.join("training_data", config_name, "structure.mcif")
+            for config_name in pyjobs.casm_jobs._get_config_names(selection)
+        ]
+
+        mcif_writers = pyjobs.casm_jobs.visualize_magnetic_moments_from_casm_structure(
+            selection, False
+        )
+
+        [
+            mcif.write_file(file_name)
+            for mcif, file_name in zip(mcif_writers, file_names)
+        ]
 
 
 if __name__ == "__main__":
