@@ -132,8 +132,9 @@ def get_rms_error_of_fit(predicted_formation_energies, dft_formation_energies):
 
 def hull_distance_correlation(corr: np.ndarray, comp: np.ndarray, hull) -> np.ndarray:
     """Calculated the effective correlations to predict hull distance instead of absolute formation energy.
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     corr: np.array
         nxk correlation matrix, where n is the number of configurations and k is the number of ECI.
     comp: np.array
@@ -141,8 +142,8 @@ def hull_distance_correlation(corr: np.ndarray, comp: np.ndarray, hull) -> np.nd
     formation_energy: np.array
         nx1 matrix of formation energies.
 
-    Returns:
-    --------
+    Returns
+    -------
     hulldist_corr: np.array
         nxk matrix of effective correlations describing hull distance instead of absolute formation energy.
         n is the number of configurations and k is the number of ECI.
