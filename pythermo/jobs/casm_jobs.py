@@ -78,11 +78,11 @@ def _get_calctype_dirs(selected_configurations: list[dict], calctype: str) -> li
 def toss_file_str(
     selected_configurations: list[dict],
     calctype: str = "default",
-    write_incar: str = True,
-    write_poscar: str = True,
-    write_kpoints: str = True,
-    write_potcar: str = True,
-    write_relaxandstatic: str = True,
+    write_incar: bool = True,
+    write_poscar: bool = True,
+    write_kpoints: bool = True,
+    write_potcar: bool = True,
+    write_relaxandstatic: bool = True,
 ) -> str:
     """For a given list of configurations in ccasm query json format,
     return a string which can be used in conjuction with rsync --files-from
@@ -586,3 +586,29 @@ def remove_completed_calculations(
             remove_str += "rm -rf " + str(calctype_dir) + "/\n"
 
     return remove_str
+
+
+def write_initial_status_files(
+    selected_configurations: list[dict], calctype: str = "default"
+) -> None:
+    """TODO: Docstring for write_initial_status_files.
+
+    Parameters
+    ----------
+    selected_configurations : TODO
+    calctype : TODO, optional
+
+    Returns
+    -------
+    TODO
+
+    """
+    status = {"status": "unsubmitted"}
+
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+
+    for calctype_dir in calctype_dirs:
+        with open(os.path.join(calctype_dir, "status.json"), "w") as f:
+            json.dump(status, f)
+
+    return None

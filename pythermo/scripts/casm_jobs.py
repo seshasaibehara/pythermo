@@ -248,11 +248,13 @@ def main():
         )
         [os.system(sed) for sed in job_names_cmds]
 
+        # write initial status file
+        pyjobs.casm_jobs.write_initial_status_files(selection, args.calctype)
+
         # generate submit script
         submit_str = pyjobs.casm_jobs.submit_script_str(
             selection, args.queue, args.calctype
         )
-
         with open(args.outfile, "w") as f:
             f.write(submit_str)
 
