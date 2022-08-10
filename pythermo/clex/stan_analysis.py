@@ -130,66 +130,6 @@ def get_rms_error_of_fit(predicted_formation_energies, dft_formation_energies):
     )
 
 
-def hull_distance_correlation(corr: np.ndarray, comp: np.ndarray, hull) -> np.ndarray:
-    """Calculated the effective correlations to predict hull distance instead of absolute formation energy.
-
-    Parameters
-    ----------
-    corr: np.array
-        nxk correlation matrix, where n is the number of configurations and k is the number of ECI.
-    comp: np.array
-        nxc matrix of compositions, where n is the number of configurations and c is the number of composition axes.
-    formation_energy: np.array
-        nx1 matrix of formation energies.
-
-    Returns
-    -------
-    hulldist_corr: np.array
-        nxk matrix of effective correlations describing hull distance instead of absolute formation energy.
-        n is the number of configurations and k is the number of ECI.
-    """
-
-    # Get convex hull simplices
-    lower_vertices, lower_simplices = thermocore.geometry.hull.lower_hull(hull)
-
-    hulldist_corr = np.zeros(corr.shape)
-
-    for config_index in list(range(corr.shape[0])):
-
-        # Find the simplex that contains the current configuration's composition, and find the hull energy for that composition
-        (
-            relevant_simplex_index,
-            _,
-        ) = thermocore.geometry.hull.lower_hull_simplex_containing(
-            compositions=comp[config_index].reshape(1, -1),
-            convex_hull=hull,
-            lower_hull_simplex_indices=lower_simplices,
-        )
-
-        relevant_simplex_index = relevant_simplex_index[0]
-
-        # Find vectors defining the corners of the simplex which contains the curent configuration's composition.
-        simplex_corners = comp[hull.simplices[relevant_simplex_index]]
-        interior_point = np.array(comp[config_index]).reshape(1, -1)
-
-        # Enforce that the sum of weights is equal to 1.
-        simplex_corners = np.hstack(
-            (simplex_corners, np.ones((simplex_corners.shape[0], 1)))
-        )
-        interior_point = np.hstack((interior_point, np.ones((1, 1))))
-
-        # Project the interior point onto the vectors that define the simplex corners.
-        weights = interior_point @ np.linalg.pinv(simplex_corners)
-
-        # Form the hull distance correlations by taking a linear combination of simplex corners.
-
-        hulldist_corr[config_index] = (
-            corr[config_index] - weights @ corr[hull.simplices[relevant_simplex_index]]
-        )
-
-    return hulldist_corr
-
-
 def plot_error_bar(ax, xprop, yprop, yerr, **kwargs):
     """TODO: Docstring for plot_error_bar.
 

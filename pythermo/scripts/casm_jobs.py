@@ -215,6 +215,14 @@ def main():
     )
     _add_infile_argument(visualize_magmoms)
 
+    # remove completed calculations
+    remove_completed_calculations = subparser.add_parser(
+        "remove", help="Remove completed calculations"
+    )
+    _add_infile_argument(remove_completed_calculations)
+    _add_outfile_argument(remove_completed_calculations)
+    _add_calctype_argument(remove_completed_calculations)
+
     # parse all args
     args = parser.parse_args()
 
@@ -300,6 +308,16 @@ def main():
             mcif.write_file(file_name)
             for mcif, file_name in zip(mcif_writers, file_names)
         ]
+
+    if args.command == "remove":
+        selection = _configuration_list(args.infile)
+
+        remove_str = pyjobs.casm_jobs.remove_completed_calculations(
+            selection, args.calctype
+        )
+
+        with open(args.outfile, "w") as f:
+            f.write(remove_str)
 
 
 if __name__ == "__main__":
