@@ -121,21 +121,20 @@ def plot_binary_convex_hull(
 
     """
     # clean up *args and **kwargs and setup default args
-    keys = list(kwargs.keys())
-    if "on_hull_options" not in keys:
-        on_hull_options = default_on_hull_plotting_options()
-    if "not_on_hull_options" not in keys:
-        not_on_hull_options = default_not_on_hull_plotting_options()
-    if "lower_hull_options" not in keys:
-        lower_hull_options = default_lower_hull_plotting_options()
+    on_hull_options = default_on_hull_plotting_options()
+    not_on_hull_options = default_not_on_hull_plotting_options()
+    lower_hull_options = default_lower_hull_plotting_options()
 
     for key, value in kwargs.items():
         if key == "on_hull_options":
-            on_hull_options = value
+            for on_hull_key, on_hull_value in value.items():
+                on_hull_options[on_hull_key] = on_hull_value
         if key == "not_on_hull_options":
-            not_on_hull_options = value
+            for not_on_hull_key, not_on_hull_value in value.items():
+                not_on_hull_options[not_on_hull_key] = not_on_hull_value
         if key == "lower_hull_options":
-            lower_hull_options = value
+            for lower_hull_key, lower_hull_value in value.items():
+                lower_hull_options[lower_hull_key] = lower_hull_value
 
     # get convex hull
     hull = binary_convex_hull(comps, energies)
@@ -206,7 +205,7 @@ def default_on_hull_plotting_options() -> Dict:
 
     """
     return {
-        "color": "tab:red",
+        "color": "tab:green",
         "marker": "s",
         "facecolors": "none",
         "linewidth": 2.0,
