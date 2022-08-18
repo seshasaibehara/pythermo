@@ -1,6 +1,7 @@
 import os
 import json
 import argparse
+import subprocess
 import pythermo.jobs as pyjobs
 
 
@@ -9,7 +10,8 @@ def _sanitize_bool_args(arg: str) -> bool:
 
     Parameters
     ----------
-    arg : TODO
+    arg : str
+        bool argument passed a string
 
     Returns
     -------
@@ -31,16 +33,20 @@ def _sanitize_bool_args(arg: str) -> bool:
         raise RuntimeError("Could not convert " + arg + " to a boolean value.")
 
 
-def _configuration_list(filename):
-    """TODO: Docstring for _.
+def _configuration_list(filename: str) -> list[dict]:
+    """Returns a configuration list from
+    a given filename
 
     Parameters
     ----------
-    filename : TODO
+    filename : str
+        filename
 
     Returns
     -------
-    TODO
+    list[dict]
+        List of configuration dictionaries
+        in ccasm style
 
     """
     with open(filename, "r") as f:
@@ -49,16 +55,18 @@ def _configuration_list(filename):
     return selection
 
 
-def _add_infile_argument(parser):
-    """TODO: Docstring for _add_infile_argument.
+def _add_infile_argument(parser: argparse.ArgumentParser) -> None:
+    """Adds input file argument to a given SubParser
 
     Parameters
     ----------
-    parser : TODO
+    parser : argparse.ArgumentParser
+        SubParser for which you want to add
+        input file argument
 
     Returns
     -------
-    TODO
+    None
 
     """
     parser.add_argument(
@@ -69,17 +77,21 @@ def _add_infile_argument(parser):
         help="Input file path with list of configurations (ccasm query json format)",
     )
 
+    return None
 
-def _add_outfile_argument(parser):
-    """TODO: Docstring for _add_outfile_argument.
+
+def _add_outfile_argument(parser: argparse.ArgumentParser) -> None:
+    """Adds output file argument to a given SubParser
 
     Parameters
     ----------
-    parser : TODO
+    parser : argparse.ArgumentParser
+        SubParser for which you want to add
+        output file argument
 
     Returns
     -------
-    TODO
+    None
 
     """
     parser.add_argument(
@@ -89,18 +101,21 @@ def _add_outfile_argument(parser):
         required=True,
         help="output file path",
     )
+    return None
 
 
-def _add_calctype_argument(parser):
-    """TODO: Docstring for _add_calctype_argument.
+def _add_calctype_argument(parser: argparse.ArgumentParser) -> None:
+    """Adds calctype argument for a given parser
 
     Parameters
     ----------
-    parser : TODO
+    parser : argparse.ArgumentParser
+        SubParser for which you want to add
+        calctype argument
 
     Returns
     -------
-    TODO
+    None
 
     """
     parser.add_argument(
@@ -110,6 +125,49 @@ def _add_calctype_argument(parser):
         type=str,
         help='casm calctype from which configurations need to be read (default="default")',
     )
+    return None
+
+
+def _add_verbose_argument(parser: argparse.ArgumentParser) -> None:
+    """Adds verbose argument for a given parser
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        SubParser for which you want to add
+        verbose argument
+
+    Returns
+    -------
+    None
+
+    """
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Helps increase verbosity"
+    )
+    return None
+
+
+def print_verbosity(is_verbose: bool, *args: str) -> None:
+    """If ``is_verbose`` is ``True``,
+    prints ``verbosity``
+
+    Parameters
+    ----------
+    is_verbose : bool
+        Whether you want to print ``verbosity``
+    *args : str
+        strings to print
+
+    Returns
+    -------
+    None
+
+    """
+    if is_verbose:
+        [print(arg) for arg in args]
+
+    return None
 
 
 def main():
@@ -124,6 +182,7 @@ def main():
     _add_infile_argument(toss)
     _add_outfile_argument(toss)
     _add_calctype_argument(toss)
+    _add_verbose_argument(toss)
 
     toss.add_argument(
         "--incar",
@@ -237,6 +296,43 @@ def main():
             _sanitize_bool_args(args.potcar),
             _sanitize_bool_args(args.relaxandstatic),
         )
+        # deal with verbosity
+        [
+            print_verbosity(
+                args.verbose, "Writing INCAR to toss file for " + config["name"]
+            )
+            for config in selection
+            if _sanitize_bool_args(args.incar)
+        ]
+        [
+            print_verbosity(
+                args.verbose, "Writing POSCAR to toss file for " + config["name"]
+            )
+            for config in selection
+            if _sanitize_bool_args(args.poscar)
+        ]
+        [
+            print_verbosity(
+                args.verbose, "Writing KPOINTS to toss file for " + config["name"]
+            )
+            for config in selection
+            if _sanitize_bool_args(args.kpoints)
+        ]
+        [
+            print_verbosity(
+                args.verbose, "Writing POTCAR to toss file for " + config["name"]
+            )
+            for config in selection
+            if _sanitize_bool_args(args.potcar)
+        ]
+        [
+            print_verbosity(
+                args.verbose,
+                "Writing relaxandstatic.sh to toss file for " + config["name"],
+            )
+            for config in selection
+            if _sanitize_bool_args(args.relaxandstatic)
+        ]
 
         with open(args.outfile, "w") as f:
             f.write(toss_str)
@@ -248,13 +344,17 @@ def main():
         copy_commands = pyjobs.casm_jobs.copy_relaxandstatic_cmds(
             selection, args.relaxandstatic, args.calctype
         )
-        [os.system(cp) for cp in copy_commands]
+        for copy_command_args in copy_commands:
+            copy = subprocess.Popen(copy_command_args, stdout=subprocess.PIPE)
+            copy_output, copy_error = copy.communicate()
 
         # sed relaxandstatic.sh and update job names
-        job_names_cmds = pyjobs.casm_jobs.change_job_names_cmds(
+        job_name_cmds = pyjobs.casm_jobs.change_job_names_cmds(
             selection, args.queue, args.calctype
         )
-        [os.system(sed) for sed in job_names_cmds]
+        for job_name_cmd_args in job_name_cmds:
+            sed = subprocess.Popen(job_name_cmd_args, stdout=subprocess.PIPE)
+            sed_output, sed_error = sed.communicate()
 
         # write initial status file
         pyjobs.casm_jobs.write_initial_status_files(selection, args.calctype)
@@ -291,7 +391,9 @@ def main():
             )
         )
 
-        [os.system(x) for x in casm_commands]
+        for casm_cmd_args in casm_commands:
+            casm = subprocess.Popen(casm_cmd_args, stdout=subprocess.PIPE)
+            casm_output, casm_error = casm.communicate()
 
     if args.command == "visualize_magmoms":
         selection = _configuration_list(args.infile)

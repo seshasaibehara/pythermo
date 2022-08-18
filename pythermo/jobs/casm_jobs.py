@@ -1,5 +1,6 @@
 import os
 import json
+import shlex
 import numpy as np
 import pymatgen.core as pmgcore
 import pymatgen.io.vasp as pmgvasp
@@ -231,7 +232,7 @@ def copy_relaxandstatic_cmds(
     calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
 
     return [
-        "cp " + relaxandstatic_path + " " + calctype_dir + "/"
+        shlex.split("cp " + relaxandstatic_path + " " + calctype_dir + "/")
         for calctype_dir in calctype_dirs
     ]
 
@@ -270,18 +271,22 @@ def change_job_names_cmds(
 
     if queue == "pbs":
         return [
-            'sed -i "s/.*#PBS -N.*/#PBS -N '
-            + job_name
-            + '/g" '
-            + os.path.join(calctype_dir, "relaxandstatic.sh")
+            shlex.split(
+                'sed -i "s/.*#PBS -N.*/#PBS -N '
+                + job_name
+                + '/g" '
+                + os.path.join(calctype_dir, "relaxandstatic.sh")
+            )
             for job_name, calctype_dir in zip(job_names, calctype_dirs)
         ]
     elif queue == "slurm":
         return [
-            'sed -i "s/.*#SBATCH -J.*/#SBATCH -J '
-            + job_name
-            + '/g" '
-            + os.path.join(calctype_dir, "relaxandstatic.sh")
+            shlex.split(
+                'sed -i "s/.*#SBATCH -J.*/#SBATCH -J '
+                + job_name
+                + '/g" '
+                + os.path.join(calctype_dir, "relaxandstatic.sh")
+            )
             for job_name, calctype_dir in zip(job_names, calctype_dirs)
         ]
     else:
@@ -453,12 +458,14 @@ def get_casm_commands_to_turn_off_given_configurations(
     ]
 
     casm_commands = [
-        casm_executable
-        + " select --set-off 're(configname, "
-        + '"'
-        + config_name
-        + '"'
-        + ")'"
+        shlex.split(
+            casm_executable
+            + " select --set-off 're(configname, "
+            + '"'
+            + config_name
+            + '"'
+            + ")'"
+        )
         for config_name in config_names
     ]
 
