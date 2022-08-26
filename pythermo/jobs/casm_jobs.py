@@ -550,6 +550,28 @@ def visualize_magnetic_moments_from_casm_structure(
     return mcifs
 
 
+def visualize_magmoms_from_outcar(outcar_path: str, contcar_path: str) -> CifWriter:
+    """TODO: Docstring for visualize_magmoms_from_outcar.
+
+    Parameters
+    ----------
+    outcar_path : TODO
+    contcar_path : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    magmoms_dict = pmgvasp.Outcar(outcar_path).magnetization
+    magmoms = [magmom_dict["tot"] for magmom_dict in magmoms_dict]
+
+    contcar_structure = pmgvasp.Poscar.from_file(contcar_path).structure
+    contcar_structure.add_site_property("magmom", magmoms)
+
+    return CifWriter(contcar_structure, write_magmoms=True)
+
+
 def remove_completed_calculations(
     selected_configurations: list[dict], calctype: str = "default"
 ) -> str:
