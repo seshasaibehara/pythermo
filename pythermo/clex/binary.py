@@ -136,24 +136,21 @@ def plot_binary_convex_hull(
             for lower_hull_key, lower_hull_value in value.items():
                 lower_hull_options[lower_hull_key] = lower_hull_value
 
-    # get convex hull
-    hull = binary_convex_hull(comps, energies)
-
-    # get the lower_hull
-    lower_hull = thermocore.geometry.hull.lower_hull(hull)
-
     # plt comps, energies
-    for index, entry in enumerate(zip(comps.tolist(), energies.tolist())):
-        if index in lower_hull[0].tolist():
-            ax.scatter(entry[0], entry[1], **on_hull_options)
-        else:
-            ax.scatter(entry[0], entry[1], **not_on_hull_options)
+    on_hull_comps, on_hull_energies = ground_state_comps_and_energies(comps, energies)
+    on_hull_indices = ground_state_indices(comps, energies)
+    not_on_hull_comps = [
+        comp for i, comp in enumerate(comps) if i not in on_hull_indices
+    ]
+    not_on_hull_energies = [
+        energy for i, energy in enumerate(energies) if i not in on_hull_indices
+    ]
+
+    ax.scatter(on_hull_comps, on_hull_energies, **on_hull_options)
+    ax.scatter(not_on_hull_comps, not_on_hull_energies, **not_on_hull_options)
 
     # plot lower hull
-    ground_state_comps, ground_state_energies = ground_state_comps_and_energies(
-        comps, energies
-    )
-    ax.plot(ground_state_comps, ground_state_energies, **lower_hull_options)
+    ax.plot(on_hull_comps, on_hull_energies, **lower_hull_options)
 
     return ax
 

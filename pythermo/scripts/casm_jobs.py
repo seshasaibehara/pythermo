@@ -170,6 +170,42 @@ def print_verbosity(is_verbose: bool, *args: str) -> None:
     return None
 
 
+def execute_visualize_magmoms(args):
+    """TODO: Docstring for execute_visualize_magmoms.
+
+    Parameters
+    ----------
+    args : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    if os.path.basename(args.infile) == "OUTCAR":
+        if args.outfile is None or args.contcar is None:
+            raise RuntimeError("Please provide outfile and contcar path")
+        mcif = pyjobs.casm_jobs.visualize_magmoms_from_outcar(args.infile, args.contcar)
+        mcif.write_file(args.outfile)
+
+    else:
+        selection = _configuration_list(args.infile)
+        file_names = [
+            os.path.join("training_data", config_name, "structure.mcif")
+            for config_name in pyjobs.casm_jobs._get_config_names(selection)
+        ]
+
+        mcif_writers = pyjobs.casm_jobs.visualize_magnetic_moments_from_casm_structure(
+            selection, False
+        )
+
+        [
+            mcif.write_file(file_name)
+            for mcif, file_name in zip(mcif_writers, file_names)
+        ]
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser("Helpful functions for use with casm")
     subparser = parser.add_subparsers(dest="command")
@@ -273,6 +309,17 @@ def main():
         "visualize_magmoms", help="Writes .mcif file for given configurations"
     )
     _add_infile_argument(visualize_magmoms)
+
+    visualize_magmoms.add_argument(
+        "--contcar",
+        "-c",
+        default=None,
+        type=str,
+        help="Path to contcar if visualizing through outcar",
+    )
+    visualize_magmoms.add_argument(
+        "--outfile", "-o", type=str, default=None, help="Path to outcar mcif file"
+    )
 
     # remove completed calculations
     remove_completed_calculations = subparser.add_parser(
@@ -396,20 +443,7 @@ def main():
             casm_output, casm_error = casm.communicate()
 
     if args.command == "visualize_magmoms":
-        selection = _configuration_list(args.infile)
-        file_names = [
-            os.path.join("training_data", config_name, "structure.mcif")
-            for config_name in pyjobs.casm_jobs._get_config_names(selection)
-        ]
-
-        mcif_writers = pyjobs.casm_jobs.visualize_magnetic_moments_from_casm_structure(
-            selection, False
-        )
-
-        [
-            mcif.write_file(file_name)
-            for mcif, file_name in zip(mcif_writers, file_names)
-        ]
+        execute_visualize_magmoms(args)
 
     if args.command == "remove":
         selection = _configuration_list(args.infile)

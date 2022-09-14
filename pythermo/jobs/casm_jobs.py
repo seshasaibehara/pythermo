@@ -550,6 +550,47 @@ def visualize_magnetic_moments_from_casm_structure(
     return mcifs
 
 
+def visualize_magmoms_from_outcar(
+    outcar_path: str, contcar_path: str, non_collinear=False
+) -> CifWriter:
+    """TODO: Docstring for visualize_magmoms_from_outcar.
+
+    Parameters
+    ----------
+    outcar_path : TODO
+    contcar_path : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    if non_collinear:
+        raise NotImplementedError("Non collinear calculations not implemented yet")
+
+    magmoms_dict = pmgvasp.Outcar(outcar_path).magnetization
+    magmoms = [
+        magmom_dict["tot"] / abs(magmom_dict["tot"])
+        if abs(float(magmom_dict["tot"])) >= 0.5
+        else 0
+        for magmom_dict in magmoms_dict
+    ]
+    contcar_structure = pmgvasp.Poscar.from_file(contcar_path).structure
+
+    magmoms_xyz_cart = np.array(
+        [np.append(np.zeros(2), magmom_z) for magmom_z in magmoms]
+    )
+    magmoms_xyz_frac = (
+        np.linalg.inv(contcar_structure.lattice.matrix.transpose())
+        @ magmoms_xyz_cart.transpose()
+    )
+    magmoms_xyz_frac = magmoms_xyz_frac.transpose()
+
+    contcar_structure.add_site_property("magmom", magmoms_xyz_cart)
+
+    return CifWriter(contcar_structure, write_magmoms=True)
+
+
 def remove_completed_calculations(
     selected_configurations: list[dict], calctype: str = "default"
 ) -> str:
