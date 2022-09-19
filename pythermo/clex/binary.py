@@ -1,14 +1,11 @@
-import thermocore
 import numpy as np
-import scipy.spatial
-from typing import List, Tuple, Dict
 import matplotlib.pyplot as plt
+import thermocore.geometry.hull as thull
 
 
-def binary_convex_hull(
-    comps: np.ndarray, energies: np.ndarray
-) -> scipy.spatial.ConvexHull:
-    """Returns binary convex hull from comps and energies
+def ground_state_indices(comps: np.ndarray, energies: np.ndarray) -> list[int]:
+    """Given comps and energies, returns a list of ground state indices
+    of comps and energies
 
     Parameters
     ----------
@@ -17,51 +14,36 @@ def binary_convex_hull(
 
     Returns
     -------
-    scipy.spatial.ConvexHull
-        ConvexHull
+    list[int]
+        Indices of ground states
 
     """
-    return scipy.spatial.ConvexHull(np.column_stack((comps, energies)))
-
-
-def ground_state_indices(comps, energies):
-    """TODO: Docstring for ground_state_indices.
-
-    Parameters
-    ----------
-    comps : TODO
-    energies : TODO
-
-    Returns
-    -------
-    TODO
-
-    """
-    binary_hull = binary_convex_hull(comps, energies)
-    lower_hull = thermocore.geometry.hull.lower_hull(binary_hull)
+    binary_hull = thull.full_hull(comps, energies)
+    lower_hull = thull.lower_hull(binary_hull)
 
     return lower_hull[0].tolist()
 
 
 def order_ground_state_comps_and_energies(
-    ground_state_comps, ground_state_formation_energies
-):
-    """TODO: Docstring for order_ground_state_comps_and_energies.
+    ground_state_comps: np.ndarray, ground_state_formation_energies: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Order ground states by composition
 
     Parameters
     ----------
-    ground_state_comps : TODO
-    ground_state_formation_energies : TODO
+    ground_state_comps : np.ndarray
+    ground_state_formation_energies : np.ndarray
 
     Returns
     -------
-    TODO
+    tuple[np.ndarray, np.ndarray]
+        Ordered ground state comps and energies
 
     """
     zipped_comps_eneriges = list(
         zip(ground_state_comps, ground_state_formation_energies)
     )
-    zipped_comps_eneriges.sort(key=lambda x: x[0])
+    zipped_comps_eneriges.sort(key=lambda comp: comp[0])
 
     return (
         np.array([entry[0] for entry in zipped_comps_eneriges]),
@@ -71,7 +53,7 @@ def order_ground_state_comps_and_energies(
 
 def ground_state_comps_and_energies(
     comps: np.ndarray, energies: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Ground state energies and comps sorted in order of increasing composition
 
     Parameters
@@ -81,21 +63,15 @@ def ground_state_comps_and_energies(
 
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray]
+    tuple[np.ndarray, np.ndarray]
         Ground state energies and compositions sorted in order of increasing composition
 
     """
-    # convex hull
-    hull = binary_convex_hull(comps, energies)
-
-    # lower hull
-    lower_hull = thermocore.geometry.hull.lower_hull(hull)
+    indices = ground_state_indices(comps, energies)
 
     # get ground state energies and comps
-    ground_state_comps = [comps.tolist()[index] for index in lower_hull[0].tolist()]
-    ground_state_energies = [
-        energies.tolist()[index] for index in lower_hull[0].tolist()
-    ]
+    ground_state_comps = [comps[index] for index in indices]
+    ground_state_energies = [energies[index] for index in indices]
 
     # sort them by comps
     return order_ground_state_comps_and_energies(
@@ -138,6 +114,9 @@ def plot_binary_convex_hull(
 
     # plt comps, energies
     on_hull_comps, on_hull_energies = ground_state_comps_and_energies(comps, energies)
+    ax.scatter(on_hull_comps, on_hull_energies, **on_hull_options)
+    ax.plot(on_hull_comps, on_hull_energies, **lower_hull_options)
+
     on_hull_indices = ground_state_indices(comps, energies)
     not_on_hull_comps = [
         comp for i, comp in enumerate(comps) if i not in on_hull_indices
@@ -146,11 +125,7 @@ def plot_binary_convex_hull(
         energy for i, energy in enumerate(energies) if i not in on_hull_indices
     ]
 
-    ax.scatter(on_hull_comps, on_hull_energies, **on_hull_options)
     ax.scatter(not_on_hull_comps, not_on_hull_energies, **not_on_hull_options)
-
-    # plot lower hull
-    ax.plot(on_hull_comps, on_hull_energies, **lower_hull_options)
 
     return ax
 
@@ -160,7 +135,7 @@ def indices_and_hull_distances_within_given_parameters(
     energies: np.ndarray,
     max_distance: float,
     min_distance: float = 1e-4,
-) -> List[Tuple[int, float]]:
+) -> list[tuple[int, float]]:
     """Indices and hull distances from lower convex hull of compositions and energies within
     given min and max hull distances
 
@@ -173,14 +148,12 @@ def indices_and_hull_distances_within_given_parameters(
 
     Returns
     -------
-    List[Tuple[int, float]]
+    list[tuple[int, float]]
         Indices and hull distances of compositions and energies close to convex hull
         within given parameters
 
     """
-    lower_hull_distances = thermocore.geometry.hull.lower_hull_distances(
-        comps[:, np.newaxis], energies
-    )
+    lower_hull_distances = thull.lower_hull_distances(comps, energies)
 
     indices_and_hull_distnaces = [
         (index, hull_distance)
@@ -193,66 +166,66 @@ def indices_and_hull_distances_within_given_parameters(
     ]
 
 
-def default_on_hull_plotting_options() -> Dict:
+def default_on_hull_plotting_options() -> dict:
     """Default plotting options for points on hull
 
     Returns
     -------
-    Dict
+    dict
 
     """
-    return {
-        "color": "tab:green",
-        "marker": "s",
-        "facecolors": "none",
-        "linewidth": 2.0,
-        "s": 54,
-    }
+    return dict(
+        color="tab:green",
+        marker="s",
+        facecolors="none",
+        linewidth=2.0,
+        s=54,
+    )
 
 
-def default_not_on_hull_plotting_options() -> Dict:
+def default_not_on_hull_plotting_options() -> dict:
     """Default plotting options for points not on hull
 
     Returns
     -------
-    Dict
+    dict
 
     """
-    return {
-        "color": "tab:green",
-        "alpha": 0.75,
-        "s": 54,
-    }
+    return dict(
+        color="tab:green",
+        alpha=0.75,
+        s=54,
+    )
 
 
-def default_lower_hull_plotting_options() -> Dict:
+def default_lower_hull_plotting_options() -> dict:
     """Default plotting options for points on lower hull
 
     Returns
     -------
-    Dict
+    dict
 
     """
-    return {
-        "color": "black",
-        "linestyle": "--",
-        "linewidth": 2,
-    }
+    return dict(
+        color="black",
+        linestyle="--",
+        linewidth=2.0,
+    )
 
 
 def get_required_property_from_formation_energy_dict_from_given_list_of_indices(
-    formation_energy_dict: Dict, required_property: str, indices_list: List[int]
-) -> List:
+    formation_energy_dict: dict, required_property: str, indices_list: list[int]
+) -> list:
     """Get config names for a given list of indices
 
     Parameters
     ----------
-    formation_energy_dict : Dict
-    indices_list : List[int]
+    formation_energy_dict : dict
+    indices_list : list[int]
 
     Returns
     -------
-    List
+    list
 
     """
     return [
@@ -268,25 +241,24 @@ def convert_hull_distances_to_formation_energies(
     comps: np.ndarray,
     formation_energies: np.ndarray,
 ) -> np.ndarray:
-    """TODO: Docstring for convert_hull_distances_to_formation_energies.
+    """Given hull distances and comps, converts the hull
+    distances to formation energies
 
     Parameters
     ----------
-    hull_distances : TODO
-    comps_of_hull_distances : TODO
-    comps : TODO
-    formation_energies : TODO
+    hull_distances : np.ndarray
+    comps_of_hull_distances : np.ndarray
+    comps : np.ndarray
+    formation_energies : np.ndarray
 
     Returns
     -------
-    TODO
+    np.ndarray
 
     """
-    convex_hull = binary_convex_hull(comps, formation_energies)
-    lower_hull_energies_at_hull_distance_comps = (
-        thermocore.geometry.hull.lower_hull_energies(
-            comps_of_hull_distances, convex_hull
-        )
+    convex_hull = thull.full_hull(comps, formation_energies)
+    lower_hull_energies_at_hull_distance_comps = thull.lower_hull_energies(
+        comps_of_hull_distances, convex_hull
     )
 
     if len(hull_distances.shape) == 1:
@@ -297,67 +269,69 @@ def convert_hull_distances_to_formation_energies(
         )
 
 
-def _intercepts_on_axes(ground_state_comps, ground_state_formation_energies):
-    """TODO: Docstring for get_chemical_potentials_for_a_substitutioal_solid.
+def _intercepts_on_axes(
+    ground_state_comps: np.ndarray, ground_state_formation_energies: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Given ground_state_comps and ground_state_formation_energies,
+    calculates intercepts of ground states on both the axes of
+    convex hull
 
     Parameters
     ----------
-    ground_state_comps : TODO
-    ground_state_formation_energies : TODO
+    ground_state_comps : np.ndarray
+    ground_state_formation_energies : np.ndarray
 
     Returns
     -------
-    TODO
+    tuple[np.ndarray, np.ndarray]
 
     """
 
-    ordered_ground_state_comps_and_formation_energies = (
-        order_ground_state_comps_and_energies(
-            ground_state_comps, ground_state_formation_energies
-        )
+    comps, fes = order_ground_state_comps_and_energies(
+        ground_state_comps, ground_state_formation_energies
     )
 
-    comps = ordered_ground_state_comps_and_formation_energies[0]
-    fes = ordered_ground_state_comps_and_formation_energies[1]
+    # { [(fe(i+1) - fe(i)) / (comp(i+1) - comp(i))] *(-comp(i))} + fe(i)
+    intercepts_on_left_axis = np.array(
+        [
+            (((fes[i + 1] - fes[i]) / (comps[i + 1] - comps[i])) * (-comps[i])) + fes[i]
+            for i in range(len(comps) - 1)
+        ]
+    )
 
-    # {(fe(i+1) - fe(i)) / (comp(i+1) - comp(i))}*(-comp(i)) + fe(i)
-    intercepts_on_left_axis = []
-    for i in range(len(comps) - 1):
-        intercept = (
-            ((fes[i + 1] - fes[i]) / (comps[i + 1] - comps[i])) * (-comps[i])
-        ) + fes[i]
+    # { [(fe(i+1) - fe(i))/ (comp(i+1) - comp(i))] *(1-comp(i)) } + fe(i)
+    intercepts_on_right_axis = np.array(
+        [
+            (((fes[i + 1] - fes[i]) / (comps[i + 1] - comps[i])) * (1 - comps[i]))
+            + fes[i]
+            for i in range(len(comps) - 1)
+        ]
+    )
 
-        intercepts_on_left_axis.append(intercept)
-
-    # { (fe(i+1) - fe(i))/ (comp(i+1) - comp(i)) *(1-comp(i))} + fe(i)
-    intercepts_on_right_axis = []
-    for i in range(len(comps) - 1):
-        intercept = (
-            ((fes[i + 1] - fes[i]) / (comps[i + 1] - comps[i])) * (1 - comps[i])
-        ) + fes[i]
-        intercepts_on_right_axis.append(intercept)
-
-    return (np.array(intercepts_on_left_axis), np.array(intercepts_on_right_axis))
+    return intercepts_on_left_axis, intercepts_on_right_axis
 
 
 def get_chemical_potentials(
-    ground_state_comps,
-    ground_state_formation_energies,
-    reference_energies: List,
+    ground_state_comps: np.ndarray,
+    ground_state_formation_energies: np.ndarray,
+    reference_energies: list,
     type_of_compound: str,
-):
-    """TODO: Docstring for get_chemical_potentials.
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates chemical potentials of both the elements
+    in a binary system. If ``type_of_compound`` is
+    "substitutional", gives the intercepts on left and
+    right axis respectively.
 
     Parameters
     ----------
-    ground_state_comps : TODO
-    ground_state_formation_energies : TODO
-    reference_energies : TODO
-    type_of_compound : TODO
+    ground_state_comps : np.ndarray
+    ground_state_formation_energies : np.ndarray
+    reference_energies : list
+    type_of_compound : str
 
     Returns
     -------
-    TODO
+    tuple[np.ndarray, np.ndarray]
 
     """
     assert len(ground_state_comps) == len(ground_state_formation_energies)
@@ -387,18 +361,23 @@ def get_chemical_potentials(
         )
 
 
-def get_voltages(chemical_potentials, reference_state, number_of_electrons):
-    """TODO: Docstring for get_voltages.
+def get_voltages(
+    chemical_potentials: np.ndarray,
+    reference_state: np.ndarray,
+    number_of_electrons: int,
+) -> np.ndarray:
+    """Given reference_state and chemical potentials,
+    calculates voltages
 
     Parameters
     ----------
-    chemical_potentials : TODO
-    reference_state : TODO
-     : TODO
+    chemical_potentials : np.ndarray
+    reference_state : np.ndarray
+    number_of_electrons : int
 
     Returns
     -------
-    TODO
+    np.ndarray
 
     """
     return -(chemical_potentials - reference_state) / number_of_electrons
