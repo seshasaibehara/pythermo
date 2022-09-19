@@ -639,16 +639,20 @@ def remove_completed_calculations(
 def write_initial_status_files(
     selected_configurations: list[dict], calctype: str = "default"
 ) -> None:
-    """TODO: Docstring for write_initial_status_files.
+    """Writes initial status files when generating the
+    submit script.
 
     Parameters
     ----------
-    selected_configurations : TODO
-    calctype : TODO, optional
+    selected_configurations : list[dict]
+        List of configurations in ccasm query json format
+    calctype : str, optional
+        ccasm ``calctype`` of your DFT calcuations
 
     Returns
     -------
-    TODO
+    None
+        Writes status.json with "unsubmitted" status
 
     """
     status = {"status": "unsubmitted"}
