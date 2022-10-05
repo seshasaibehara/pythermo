@@ -426,7 +426,7 @@ def execute_configs(args: argparse.ArgumentParser) -> None:
     )
 
     with open(args.outfile, "w") as f:
-        json.dump(config_list, f)
+        json.dump(config_list, f, indent=2)
 
     return None
 
