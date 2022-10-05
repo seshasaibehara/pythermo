@@ -233,8 +233,8 @@ def add_modify_magmom_arguments(subparser: argparse.ArgumentParser) -> None:
     _add_calctype_argument(subparser)
 
 
-def add_setoff_arguments(subparser: argparse.ArgumentParser) -> None:
-    """Add setoff arguments to the given subparser
+def add_configs_arguments(subparser: argparse.ArgumentParser) -> None:
+    """Add configs arguments to the given subparser
 
     Parameters
     ----------
@@ -250,10 +250,7 @@ def add_setoff_arguments(subparser: argparse.ArgumentParser) -> None:
         "--infile", "-i", required=True, type=str, help="Path to input file"
     )
     subparser.add_argument(
-        "--executable",
-        nargs="?",
-        default="ccasm",
-        help='path to casm executable (default = "ccasm")',
+        "--outfile", "-o", required=True, type=str, help="Path to output file"
     )
 
 
@@ -405,7 +402,7 @@ def execute_modify_magmoms(args: argparse.ArgumentParser) -> None:
     return None
 
 
-def execute_setoff(args: argparse.ArgumentParser) -> None:
+def execute_configs(args: argparse.ArgumentParser) -> None:
     """Exectue setoff given arguments
 
     Parameters
@@ -424,13 +421,12 @@ def execute_setoff(args: argparse.ArgumentParser) -> None:
         configurations_info = json.load(f)
 
     # get casm commands
-    casm_commands = pyjobs.casm_jobs.get_casm_commands_to_turn_off_given_configurations(
-        configurations_info, args.executable
+    config_list = pyjobs.casm_jobs.get_casm_config_list_from_config_info(
+        configurations_info
     )
 
-    for casm_cmd_args in casm_commands:
-        casm = subprocess.Popen(casm_cmd_args, stdout=subprocess.PIPE)
-        casm.communicate()
+    with open(args.outfile, "w") as f:
+        json.dump(config_list, f, indent=2)
 
     return None
 
@@ -522,11 +518,11 @@ def main():
     add_modify_magmom_arguments(modify_magmoms)
 
     # setoff given list of configurations
-    setoff = subparser.add_parser(
-        "setoff",
-        help="ccasm select --set-off given range of configurations in a supercell",
+    configs = subparser.add_parser(
+        "configs",
+        help="Get casm style selection file from provided configuration information",
     )
-    add_setoff_arguments(setoff)
+    add_configs_arguments(configs)
 
     # visualize magmoms
     visualize_magmoms = subparser.add_parser(
@@ -552,8 +548,8 @@ def main():
     if args.command == "modify_magmoms":
         execute_modify_magmoms(args)
 
-    if args.command == "setoff":
-        execute_setoff(args)
+    if args.command == "configs":
+        execute_configs(args)
 
     if args.command == "visualize_magmoms":
         execute_visualize_magmoms(args)

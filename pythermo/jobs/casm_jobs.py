@@ -403,9 +403,7 @@ def modify_incar_magmoms(
     return modifed_incars
 
 
-def get_casm_commands_to_turn_off_given_configurations(
-    configurations_info: dict, casm_executable="ccasm"
-) -> list[str]:
+def get_casm_config_list_from_config_info(configurations_info: dict) -> list[dict]:
     """Given ``configurations_info``, return a list of ccasm commands to
     turn them off. \n
 
@@ -457,19 +455,11 @@ def get_casm_commands_to_turn_off_given_configurations(
         for config_number in config_range
     ]
 
-    casm_commands = [
-        shlex.split(
-            casm_executable
-            + " select --set-off 're(configname, "
-            + '"'
-            + config_name
-            + '"'
-            + ")'"
-        )
-        for config_name in config_names
+    config_list = [
+        dict(name=config_name, selected=True) for config_name in config_names
     ]
 
-    return casm_commands
+    return config_list
 
 
 def visualize_magnetic_moments_from_casm_structure(
