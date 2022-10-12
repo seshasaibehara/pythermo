@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def spline_fit_neb_images(
     neb_distances: np.array, neb_energies: np.array, number_of_spline_images=1000
-):
+) -> tuple[np.ndarray, np.ndarray]:
     """TODO: Docstring for spline_fit_neb_images.
 
     Parameters
@@ -33,17 +33,18 @@ def plot_neb_data(
     ax: plt.axis,
     neb_data: pd.DataFrame,
     spline_data: pd.DataFrame = None,
-    number_of_spline_images=1000,
-    normalize_reaction_coordinate=True,
+    number_of_spline_images: int = 1000,
+    normalize_reaction_coordinate: bool = True,
     **kwargs,
-):
+) -> plt.axis:
     """TODO: Docstring for plot_neb_data.
 
     Parameters
     ----------
-    ax : TODO
-    neb_data : TODO
-    spline_data : TODO
+    ax : plt.axis
+    neb_data : pd.DataFrame
+    spline_data : int
+    normalize_reaction_coordinate : bool, optional
     **kwargs : TODO
 
     Returns

@@ -209,7 +209,7 @@ def add_submit_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
 
-def add_modify_magmom_arguments(subparser: argparse.ArgumentParser) -> None:
+def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
     """Add modify magmom arguments to the given subparser
 
     Parameters
@@ -222,15 +222,50 @@ def add_modify_magmom_arguments(subparser: argparse.ArgumentParser) -> None:
     None
 
     """
-    _add_infile_argument(subparser)
-    subparser.add_argument(
+    magmom = subparser.add_subparsers(dest="magnetism")
+
+    modify = magmom.add_parser(
+        "modify", help="Modify magmoms in INCAR in a calctype of a casm project"
+    )
+    _add_infile_argument(modify)
+    _add_calctype_argument(modify)
+    modify.add_argument(
         "--magmoms",
         "-m",
         type=str,
         required=True,
         help="Path to magnetic moments file in json format (each atom type SHOULD have the same value of magmom)",
     )
-    _add_calctype_argument(subparser)
+
+    update = magmom.add_parser(
+        "update",
+        help="Update Cunitmagspin value in properties.calc.json of a casm project",
+    )
+    _add_infile_argument(update)
+    _add_calctype_argument(update)
+    update.add_argument(
+        "--dofs",
+        "-d",
+        nargs="+",
+        required=True,
+        help="List of elements with magnetism dof",
+    )
+
+    visualize = magmom.add_parser(
+        "visualize",
+        help="Visualize magnetic moments by writing mcif file in casm project or individual OUTCARs",
+    )
+    _add_infile_argument(visualize)
+    visualize.add_argument(
+        "--contcar",
+        "-c",
+        default=None,
+        type=str,
+        help="Path to contcar if visualizing through outcar",
+    )
+    visualize.add_argument(
+        "--outfile", "-o", type=str, default=None, help="Path to outcar mcif file"
+    )
 
 
 def add_configs_arguments(subparser: argparse.ArgumentParser) -> None:
@@ -251,33 +286,6 @@ def add_configs_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     subparser.add_argument(
         "--outfile", "-o", required=True, type=str, help="Path to output file"
-    )
-
-
-def add_visualize_magmoms_arguments(subparser: argparse.ArgumentParser) -> None:
-    """Add visualize magmoms to the given subparser
-
-    Parameters
-    ----------
-    subparser : argparse.ArgumentParser
-        subparser
-
-    Returns
-    -------
-    None
-
-    """
-    _add_infile_argument(subparser)
-
-    subparser.add_argument(
-        "--contcar",
-        "-c",
-        default=None,
-        type=str,
-        help="Path to contcar if visualizing through outcar",
-    )
-    subparser.add_argument(
-        "--outfile", "-o", type=str, default=None, help="Path to outcar mcif file"
     )
 
 
@@ -375,7 +383,7 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
     return None
 
 
-def execute_modify_magmoms(args: argparse.ArgumentParser) -> None:
+def execute_magnetism(args: argparse.ArgumentParser) -> None:
     """Execute modify magmoms given arguments
 
     Parameters
@@ -388,16 +396,55 @@ def execute_modify_magmoms(args: argparse.ArgumentParser) -> None:
     None
 
     """
-    selection = _configuration_list(args.infile)
+    if args.magnetism == "modify":
+        selection = _configuration_list(args.infile)
 
-    with open(args.magmoms, "r") as f:
-        new_magmoms = json.load(f)
+        with open(args.magmoms, "r") as f:
+            new_magmoms = json.load(f)
 
-    modified_incars = pyjobs.casm_jobs.modify_incar_magmoms(
-        selection, new_magmoms, args.calctype, False
-    )
+        modified_incars = pyjobs.casm_jobs.modify_incar_magmoms(
+            selection, new_magmoms, args.calctype, False
+        )
 
-    pyjobs.casm_jobs.write_incars(selection, modified_incars, args.calctype)
+        pyjobs.casm_jobs.write_incars(selection, modified_incars, args.calctype)
+
+    if args.magnetism == "update":
+        selection = _configuration_list(args.infile)
+
+        config_properties = pyjobs.casm_jobs.modify_magmoms_in_properties_json(
+            selection, args.dofs, args.calctype
+        )
+
+        pyjobs.casm_jobs.write_properties_json(
+            selection, config_properties, args.calctype
+        )
+
+    if args.magnetism == "visualize":
+        if os.path.basename(args.infile) == "OUTCAR":
+            if args.outfile is None or args.contcar is None:
+                raise RuntimeError("Please provide outfile and contcar path")
+            mcif = pyjobs.casm_jobs.visualize_magmoms_from_outcar(
+                args.infile, args.contcar
+            )
+            mcif.write_file(args.outfile)
+
+        else:
+            selection = _configuration_list(args.infile)
+            file_names = [
+                os.path.join("training_data", config_name, "structure.mcif")
+                for config_name in pyjobs.casm_jobs._get_config_names(selection)
+            ]
+
+            mcif_writers = (
+                pyjobs.casm_jobs.visualize_magnetic_moments_from_casm_structure(
+                    selection, False
+                )
+            )
+
+            [
+                mcif.write_file(file_name)
+                for mcif, file_name in zip(mcif_writers, file_names)
+            ]
 
     return None
 
@@ -431,44 +478,7 @@ def execute_configs(args: argparse.ArgumentParser) -> None:
     return None
 
 
-def execute_visualize_magmoms(args: argparse.ArgumentParser) -> None:
-    """Exectue visualize magmoms given arguments
-
-    Parameters
-    ----------
-    args : argparse.ArgumentParser
-        Visualize magmom arguments
-
-    Returns
-    -------
-    None
-
-    """
-    if os.path.basename(args.infile) == "OUTCAR":
-        if args.outfile is None or args.contcar is None:
-            raise RuntimeError("Please provide outfile and contcar path")
-        mcif = pyjobs.casm_jobs.visualize_magmoms_from_outcar(args.infile, args.contcar)
-        mcif.write_file(args.outfile)
-
-    else:
-        selection = _configuration_list(args.infile)
-        file_names = [
-            os.path.join("training_data", config_name, "structure.mcif")
-            for config_name in pyjobs.casm_jobs._get_config_names(selection)
-        ]
-
-        mcif_writers = pyjobs.casm_jobs.visualize_magnetic_moments_from_casm_structure(
-            selection, False
-        )
-
-        [
-            mcif.write_file(file_name)
-            for mcif, file_name in zip(mcif_writers, file_names)
-        ]
-    return None
-
-
-def exectue_remove(args: argparse.ArgumentParser) -> None:
+def execute_remove(args: argparse.ArgumentParser) -> None:
     """Exectue remove command given the arguments
 
     Parameters
@@ -511,11 +521,11 @@ def main():
     add_submit_arguments(submit)
 
     # modify incars
-    modify_magmoms = subparser.add_parser(
-        "modify_magmoms",
-        help="Change magmoms in INCAR for a given list of configurations",
+    magnetism = subparser.add_parser(
+        "magnetism",
+        help="Magnetism related functionality such as modify/visualize in a casm project",
     )
-    add_modify_magmom_arguments(modify_magmoms)
+    add_magnetism_arguments(magnetism)
 
     # setoff given list of configurations
     configs = subparser.add_parser(
@@ -523,12 +533,6 @@ def main():
         help="Get casm style selection file from provided configuration information",
     )
     add_configs_arguments(configs)
-
-    # visualize magmoms
-    visualize_magmoms = subparser.add_parser(
-        "visualize_magmoms", help="Writes .mcif file for given configurations"
-    )
-    add_visualize_magmoms_arguments(visualize_magmoms)
 
     # remove completed calculations
     remove_completed_calculations = subparser.add_parser(
@@ -545,17 +549,14 @@ def main():
     if args.command == "submit":
         execute_submit(args)
 
-    if args.command == "modify_magmoms":
-        execute_modify_magmoms(args)
+    if args.command == "magnetism":
+        execute_magnetism(args)
 
     if args.command == "configs":
         execute_configs(args)
 
-    if args.command == "visualize_magmoms":
-        execute_visualize_magmoms(args)
-
     if args.command == "remove":
-        exectue_remove(args)
+        execute_remove(args)
 
 
 if __name__ == "__main__":

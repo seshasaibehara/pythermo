@@ -336,8 +336,10 @@ def modify_incar_magmoms(
     in Li2MnNiO8 structure:\n
     Example ``new_magmoms``:\n
     {\n
-        "atom_types": ["Li", "O"],\n
-        "magmoms" : [0.6, 0.4],\n
+        "atom_types": ["Li", "O", "Mn"],\n
+        "magmoms" : [0.6, 0.4, {"values":[-1, 1],\n
+                                "new_values":[-5, 5]}\n
+                    ],\n
     }\n
 
     Parameters
@@ -381,16 +383,30 @@ def modify_incar_magmoms(
             raise NotImplementedError("NONCOLLINEAR calculations not yet implemented")
 
         # get the updated magnetic moments for each atom type
-        # (assumes each atom type has the same value of magmom)
         # if magenetic moment for an atom type is not provided, use the one already in incar
         modified_magmoms = []
         index = 0
         for n, atom_type in zip(poscar.natoms, poscar.site_symbols):
-            # change magmom
+            # get old magmoms for a particular atom type
+            magmom = np.array(incar["MAGMOM"][index : index + n])
+
+            # if atom type is what you want to change
             if atom_type in provided_atom_types:
-                magmom = [provided_magmoms[provided_atom_types.index(atom_type)]] * n
-            else:
-                magmom = incar["MAGMOM"][index : index + n]
+                new_magmom = provided_magmoms[provided_atom_types.index(atom_type)]
+
+                # if all magmoms of a particular atom type needs to be replaced
+                if isinstance(new_magmom, float):
+                    magmom = [
+                        provided_magmoms[provided_atom_types.index(atom_type)]
+                    ] * n
+
+                # if magmoms of a particular atom type needs to be changed value by value
+                if isinstance(new_magmom, dict):
+                    for value, new_value in zip(
+                        new_magmom["values"], new_magmom["new_values"]
+                    ):
+                        magmom = np.where(np.allclose(magmom, value), new_value, magmom)
+
             index += n
 
             modified_magmoms.extend(magmom)
@@ -401,6 +417,89 @@ def modify_incar_magmoms(
         modifed_incars.append(incar)
 
     return modifed_incars
+
+
+def write_properties_json(
+    selected_configurations: list[dict],
+    config_properties: list[dict],
+    calctype: str = "default",
+) -> None:
+    """Given configuration list and properties.calc.json
+    dictionaries, writes properties.calc.json in the
+    casm project
+
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        ccasm style configurations
+    properties_json : list[dict]
+        ccasm style properties.calc.json
+    calctype : str, optional
+        ccasm calctype (default = "default")
+
+    Returns
+    -------
+    None
+        Writes properties.calc.json for all the
+        ``selected_configurations``
+
+    """
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+    for calctype_dir, config_property in zip(calctype_dirs, config_properties):
+        with open(os.path.join(calctype_dir, "properties.calc.json"), "w") as f:
+            json.dump(config_property, f, indent=2)
+
+    return None
+
+
+def modify_magmoms_in_properties_json(
+    selected_configurations: list[dict],
+    elements_with_dof: list[str],
+    calctype: str = "default",
+) -> list[dict]:
+    """Given a list of configurations and calctype,
+    changes the Cunitmagspin values of ``elements_with_dof``
+    to either +1 or -1 and remaining values to zero
+
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        ccasm style configurations
+    elements_with_dof : list[str]
+        List of elements which have Cunitmagpsin dof
+    calctype : str, optional
+        ccasm calctype (default = "default")
+
+    Returns
+    -------
+    list[dict]
+        List of modified properties.calc.json dictionaries
+        for all the ``selected_configurations``
+
+    """
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+
+    config_properties = []
+    for calctype_dir in calctype_dirs:
+        with open(os.path.join(calctype_dir, "properties.calc.json"), "r") as f:
+            properties_json = json.load(f)
+
+        atom_types = properties_json["atom_type"]
+        magmoms = properties_json["atom_properties"]["Cunitmagspin"]["value"]
+
+        new_magmoms = []
+        for atom_type, magmom in zip(atom_types, magmoms):
+            if atom_type in elements_with_dof:
+                new_magmoms.append([magmom[0] / abs(magmom[0])])
+
+            else:
+                new_magmoms.append([0.0])
+
+        properties_json["atom_properties"]["Cunitmagspin"]["value"] = new_magmoms
+
+        config_properties.append(properties_json)
+
+    return config_properties
 
 
 def get_casm_config_list_from_config_info(configurations_info: dict) -> list[dict]:
