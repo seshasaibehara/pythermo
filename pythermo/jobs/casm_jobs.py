@@ -423,18 +423,25 @@ def write_properties_json(
     selected_configurations: list[dict],
     config_properties: list[dict],
     calctype: str = "default",
-):
-    """TODO: Docstring for write_properties_json.
+) -> None:
+    """Given configuration list and properties.calc.json
+    dictionaries, writes properties.calc.json in the
+    casm project
 
     Parameters
     ----------
-    selected_configurations : TODO
-    properties_json : TODO
-    calctype : TODO, optional
+    selected_configurations : list[dict]
+        ccasm style configurations
+    properties_json : list[dict]
+        ccasm style properties.calc.json
+    calctype : str, optional
+        ccasm calctype (default = "default")
 
     Returns
     -------
-    TODO
+    None
+        Writes properties.calc.json for all the
+        ``selected_configurations``
 
     """
     calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
@@ -448,19 +455,26 @@ def write_properties_json(
 def modify_magmoms_in_properties_json(
     selected_configurations: list[dict],
     elements_with_dof: list[str],
-    calctype="default",
-):
-    """TODO: Docstring for modify_properties_json.
+    calctype: str = "default",
+) -> list[dict]:
+    """Given a list of configurations and calctype,
+    changes the Cunitmagspin values of ``elements_with_dof``
+    to either +1 or -1 and remaining values to zero
 
     Parameters
     ----------
-    selected_configurations : TODO
-    elements_with_dof : TODO
-    calctype : TODO, optional
+    selected_configurations : list[dict]
+        ccasm style configurations
+    elements_with_dof : list[str]
+        List of elements which have Cunitmagpsin dof
+    calctype : str, optional
+        ccasm calctype (default = "default")
 
     Returns
     -------
-    TODO
+    list[dict]
+        List of modified properties.calc.json dictionaries
+        for all the ``selected_configurations``
 
     """
     calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
