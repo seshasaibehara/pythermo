@@ -80,7 +80,14 @@ def ground_state_comps_and_energies(
 
 
 def plot_binary_convex_hull(
-    ax: plt.axis, comps: np.ndarray, energies: np.ndarray, **kwargs
+    ax: plt.axis,
+    comps: np.ndarray,
+    energies: np.ndarray,
+    plot_on_hull: bool = True,
+    plot_not_on_hull: bool = True,
+    plot_lower_hull: bool = True,
+    max_not_on_hull_energy=1000,
+    **kwargs,
 ) -> plt.axis:
     """Plot binary convex hull along with the lower hull
 
@@ -97,11 +104,64 @@ def plot_binary_convex_hull(
 
     """
     # clean up *args and **kwargs and setup default args
+    on_hull_options, not_on_hull_options, lower_hull_options = get_plotting_options(
+        kwargs
+    )
+
+    # plt comps, energies
+    on_hull_comps, on_hull_energies = ground_state_comps_and_energies(comps, energies)
+    if plot_on_hull:
+        ax.scatter(on_hull_comps, on_hull_energies, **on_hull_options)
+
+    if plot_lower_hull:
+        ax.plot(on_hull_comps, on_hull_energies, **lower_hull_options)
+
+    on_hull_indices = ground_state_indices(comps, energies)
+    not_on_hull_comps = np.array(
+        [comp for i, comp in enumerate(comps) if i not in on_hull_indices]
+    )
+    not_on_hull_energies = np.array(
+        [energy for i, energy in enumerate(energies) if i not in on_hull_indices]
+    )
+
+    if plot_not_on_hull:
+        ax.scatter(
+            not_on_hull_comps,
+            np.where(
+                not_on_hull_energies < max_not_on_hull_energy,
+                not_on_hull_energies,
+                np.nan,
+            ),
+            **not_on_hull_options,
+        )
+
+    return ax
+
+
+def get_plotting_options(
+    user_options: dict,
+) -> tuple[dict, dict, dict]:
+    """
+    Get plotting options as dictionaries by reading
+    in user_options
+
+    Parameters
+    ----------
+    user_options : dict
+        User provided options as dictionary
+
+    Returns
+    -------
+    tuple[dict, dict, dict]
+        on_hull_options, not_on_hull_options, lower_hull_options
+        as dictionaries
+
+    """
     on_hull_options = default_on_hull_plotting_options()
     not_on_hull_options = default_not_on_hull_plotting_options()
     lower_hull_options = default_lower_hull_plotting_options()
 
-    for key, value in kwargs.items():
+    for key, value in user_options.items():
         if key == "on_hull_options":
             for on_hull_key, on_hull_value in value.items():
                 on_hull_options[on_hull_key] = on_hull_value
@@ -112,22 +172,7 @@ def plot_binary_convex_hull(
             for lower_hull_key, lower_hull_value in value.items():
                 lower_hull_options[lower_hull_key] = lower_hull_value
 
-    # plt comps, energies
-    on_hull_comps, on_hull_energies = ground_state_comps_and_energies(comps, energies)
-    ax.scatter(on_hull_comps, on_hull_energies, **on_hull_options)
-    ax.plot(on_hull_comps, on_hull_energies, **lower_hull_options)
-
-    on_hull_indices = ground_state_indices(comps, energies)
-    not_on_hull_comps = [
-        comp for i, comp in enumerate(comps) if i not in on_hull_indices
-    ]
-    not_on_hull_energies = [
-        energy for i, energy in enumerate(energies) if i not in on_hull_indices
-    ]
-
-    ax.scatter(not_on_hull_comps, not_on_hull_energies, **not_on_hull_options)
-
-    return ax
+    return on_hull_options, not_on_hull_options, lower_hull_options
 
 
 def indices_and_hull_distances_within_given_parameters(
