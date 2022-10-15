@@ -38,7 +38,7 @@ def cubic_strain_order_parameters(hencky_strain: np.ndarray) -> np.ndarray:
 
 def symmetrically_equivalent_e2e3s(
     e2e3s: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Given a list of e2e3 vectors, returns symmetrically
     equivalent e2e3s by rotating the vectors
     by 120 and 240 degress respectively
@@ -50,9 +50,8 @@ def symmetrically_equivalent_e2e3s(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        e2s rotated by 120, e3s rotated by 120,
-        e2s rotated by 240, e3s rotated by 240
+    np.ndarray
+        e2e3s equivalents
 
     """
     rot_120 = np.array(
@@ -69,37 +68,12 @@ def symmetrically_equivalent_e2e3s(
     )
 
     mirror_e2e3s = np.array([[-e2e3[0], e2e3[1]] for e2e3 in e2e3s])
-    mirror_e2e3_120s = [rot_120 @ e2e3 for e2e3 in mirror_e2e3s]
-    mirror_e2e3_240s = [rot_240 @ e2e3 for e2e3 in mirror_e2e3s]
-    e2e3_120s = [rot_120 @ e2e3 for e2e3 in e2e3s]
-    e2e3_240s = [rot_240 @ e2e3 for e2e3 in e2e3s]
-
-    mirror_e2s = np.array([p[0] for p in mirror_e2e3s])
-    mirror_e3s = np.array([p[1] for p in mirror_e2e3s])
-
-    mirror_e2_120s = np.array([p[0] for p in mirror_e2e3_120s])
-    mirror_e3_120s = np.array([p[1] for p in mirror_e2e3_120s])
-
-    mirror_e2_240s = np.array([p[0] for p in mirror_e2e3_240s])
-    mirror_e3_240s = np.array([p[1] for p in mirror_e2e3_240s])
-
-    e2_120s = np.array([p[0] for p in e2e3_120s])
-    e3_120s = np.array([p[1] for p in e2e3_120s])
-
-    e2_240s = np.array([p[0] for p in e2e3_240s])
-    e3_240s = np.array([p[1] for p in e2e3_240s])
-
-    return (
-        e2_120s,
-        e3_120s,
-        e2_240s,
-        e3_240s,
-        mirror_e2s,
-        mirror_e3s,
-        mirror_e2_120s,
-        mirror_e3_120s,
-        mirror_e2_240s,
-        mirror_e3_240s,
+    mirror_e2e3_120s = np.array([rot_120 @ e2e3 for e2e3 in mirror_e2e3s])
+    mirror_e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in mirror_e2e3s])
+    e2e3_120s = np.array([rot_120 @ e2e3 for e2e3 in e2e3s])
+    e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in e2e3s])
+    return np.vstack(
+        (e2e3_120s, e2e3_240s, mirror_e2e3s, mirror_e2e3_120s, mirror_e2e3_240s)
     )
 
 
@@ -155,24 +129,10 @@ def plot_e2e3_strain_energies_along_with_equivalents(
     for key, value in kwargs.items():
         plotting_options[key] = value
 
-    e2s = np.array([p[0] for p in e2e3s])
-    e3s = np.array([p[1] for p in e2e3s])
-    (
-        e2_120s,
-        e3_120s,
-        e2_240s,
-        e3_240s,
-        e2ms,
-        e3ms,
-        e21ms,
-        e31ms,
-        e22ms,
-        e32ms,
-    ) = symmetrically_equivalent_e2e3s(e2e3s)
-
-    all_e2s = np.hstack((e2s, e2_120s, e2_240s, e2ms, e21ms, e22ms))
-    all_e3s = np.hstack((e3s, e3_120s, e3_240s, e3ms, e31ms, e32ms))
-    all_e2e3s = np.column_stack((all_e2s, all_e3s))
+    e2e3s_equiv = symmetrically_equivalent_e2e3s(e2e3s)
+    all_e2e3s = np.vstack((e2e3s, e2e3s_equiv))
+    all_e2s = all_e2e3s[:, 0]
+    all_e3s = all_e2e3s[:, 1]
     all_energies = np.hstack(
         (energies, energies, energies, energies, energies, energies)
     )
