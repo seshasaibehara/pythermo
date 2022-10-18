@@ -81,7 +81,8 @@ def plot_e2e3_strain_energies_along_with_equivalents(
     ax: plt.axis,
     e2e3s: np.ndarray,
     energies: np.ndarray,
-    grid_points_along_one_axis=1000,
+    smooth: bool = True,
+    grid_points_along_one_axis: int = 1000,
     cut_off_energy: float = None,
     **kwargs,
 ):
@@ -99,6 +100,10 @@ def plot_e2e3_strain_energies_along_with_equivalents(
         of one config
     energies : np.ndarray
         Energies of each config
+    smooth : bool, optional
+        If smooth is true, extrapolate
+        between grid points and make the plot
+        smoother
     grid_points_along_one_axis : int, optional
         Number of grid points to extrapolate over
         on both axes
@@ -137,22 +142,31 @@ def plot_e2e3_strain_energies_along_with_equivalents(
         (energies, energies, energies, energies, energies, energies)
     )
 
-    E2, E3 = np.meshgrid(
-        np.linspace(np.min(all_e2s), np.max(all_e2s), grid_points_along_one_axis),
-        np.linspace(np.min(all_e3s), np.max(all_e3s), grid_points_along_one_axis),
-    )
+    if smooth:
 
-    grid_energies = interpolate.griddata(
-        all_e2e3s, all_energies, np.column_stack((np.ravel(E2), np.ravel(E3)))
-    )
+        E2, E3 = np.meshgrid(
+            np.linspace(np.min(all_e2s), np.max(all_e2s), grid_points_along_one_axis),
+            np.linspace(np.min(all_e3s), np.max(all_e3s), grid_points_along_one_axis),
+        )
 
-    grid_energies = grid_energies.reshape(
-        (grid_points_along_one_axis, grid_points_along_one_axis)
-    )
-    if cut_off_energy is not None:
-        grid_energies = np.where(grid_energies < cut_off_energy, grid_energies, np.nan)
+        grid_energies = interpolate.griddata(
+            all_e2e3s, all_energies, np.column_stack((np.ravel(E2), np.ravel(E3)))
+        )
 
-    return ax.contourf(E2, E3, grid_energies, **plotting_options)
+        grid_energies = grid_energies.reshape(
+            (grid_points_along_one_axis, grid_points_along_one_axis)
+        )
+        if cut_off_energy is not None:
+            grid_energies = np.where(
+                grid_energies < cut_off_energy, grid_energies, np.nan
+            )
+
+        im = ax.contourf(E2, E3, grid_energies, **plotting_options)
+
+    else:
+        im = ax.scatter(all_e2s, all_e3s, c=all_energies, **plotting_options)
+
+    return im
 
 
 def default_e2e3_plotting_options() -> dict:
