@@ -1,3 +1,3 @@
-from . import stan_analysis, binary
+from . import clex, binary
 
-__all__ = ["stan_analysis", "binary"]
+__all__ = ["clex", "binary"]
