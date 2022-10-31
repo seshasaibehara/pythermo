@@ -5,18 +5,23 @@ import matplotlib.pyplot as plt
 
 
 def spline_fit_neb_images(
-    neb_distances: np.array, neb_energies: np.array, number_of_spline_images=1000
+    neb_distances: np.ndarray, neb_energies: np.ndarray, number_of_spline_images=1000
 ) -> tuple[np.ndarray, np.ndarray]:
-    """TODO: Docstring for spline_fit_neb_images.
+    """Do a spline fit of neb_distances and neb_energies
+    and return a smoother grid of neb_distances and
+    neb_energies
 
     Parameters
     ----------
-    neb_distances : TODO
-    neb_energies : TODO
+    neb_distances : np.ndarray
+        Neb distances as a numpy array
+    neb_energies : np.ndarray
+        Neb energies as a numpy array
 
     Returns
     -------
-    TODO
+    tuple[np.ndarray, np.ndarray]
+        Smoother grid of neb_distances and neb_energies
 
     """
     spline_fit = sci.interp1d(neb_distances, neb_energies, kind="cubic")
@@ -32,24 +37,36 @@ def spline_fit_neb_images(
 def plot_neb_data(
     ax: plt.axis,
     neb_data: pd.DataFrame,
-    spline_data: pd.DataFrame = None,
+    spline_data: pd.DataFrame | None = None,
     number_of_spline_images: int = 1000,
     normalize_reaction_coordinate: bool = True,
-    **kwargs,
+    **kwargs: dict,
 ) -> plt.axis:
-    """TODO: Docstring for plot_neb_data.
+    """Plots neb_data and spline_data
 
     Parameters
     ----------
     ax : plt.axis
+        Matplotlib axis
     neb_data : pd.DataFrame
-    spline_data : int
+        Neb data as pandas DataFrame
+    spline_data : pd.DataFrame | None, optional
+        Spline data. Can be provided as a pandas
+        DataFrame. If None (default) will be interpolated
+    number_of_spline_images: int, optional
+        Number of interpolated images if spline
+        data is not provided (default=1000)
     normalize_reaction_coordinate : bool, optional
-    **kwargs : TODO
+        Normalizes reaction coordinate (default=True)
+    **kwargs : dict
+        Dict containing info about neb plotting options
+        (as "neb_options") or spline plotting options
+        (as "spline_options")
 
     Returns
     -------
-    TODO
+    plt.axis
+        Matplotlib axis with neb and splines plotted
 
     """
     # sort keyword arguments
@@ -91,21 +108,23 @@ def plot_neb_data(
     return ax
 
 
-def default_neb_plotting_options():
-    """TODO: Docstring for default_neb_plotting_options.
+def default_neb_plotting_options() -> dict:
+    """Default neb plotting options
+
     Returns
     -------
-    TODO
+    dict
 
     """
-    return {"c": "black", "s": 54, "marker": "o"}
+    return dict(c="black", s=54, marker="o")
 
 
-def default_spline_plotting_options():
-    """TODO: Docstring for .
+def default_spline_plotting_options() -> dict:
+    """Default spline plotting options
+
     Returns
     -------
-    TODO
+    dict
 
     """
-    return {"color": "black", "linewidth": 2.0}
+    return dict(color="black", linewidth=2.0)

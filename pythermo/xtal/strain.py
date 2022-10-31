@@ -83,8 +83,8 @@ def plot_e2e3_strain_energies_along_with_equivalents(
     energies: np.ndarray,
     smooth: bool = True,
     grid_points_along_one_axis: int = 1000,
-    cut_off_energy: float = None,
-    **kwargs,
+    cut_off_energy: float | None = None,
+    **kwargs: float | str,
 ):
     """
     Plot e2-e3 strains along with their energies
@@ -110,7 +110,7 @@ def plot_e2e3_strain_energies_along_with_equivalents(
     cut_off_energy : float, optional
         If not None (default), replace energies
         with np.nan before plotting
-    kwargs : dict
+    kwargs : float | str
         Plotting options that will be passed
         onto the matplotlib axis
 
