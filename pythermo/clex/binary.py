@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import thermocore.geometry.hull as thull
@@ -426,3 +427,64 @@ def get_voltages(
 
     """
     return -(chemical_potentials - reference_state) / number_of_electrons
+
+
+def ground_state_config_names(selected_configurations: list[dict]):
+    """TODO: Docstring for ground_state_config_names.
+
+    Parameters
+    ----------
+    selected_configurations : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+
+    comps = np.array([config["comp"] for config in selected_configurations])
+    energies = np.array(
+        [config["formation_energy"] for config in selected_configurations]
+    )
+    ground_states = ground_state_indices(comps, energies)
+
+    return [selected_configurations[i]["name"] for i in ground_states]
+
+
+def fetch_ground_state_relaxed_structure_paths(
+    selected_configurations: list[dict], calctype: str = "default"
+) -> list[str]:
+    """Given a list of ``selected_configurations``, computes
+    the ground states and makes a list of ground states and
+    returns a path to CONTCAR by reading the config ``name``
+    in ``selected_configurations``
+
+    IF THERE ARE CONFLICTING MAPS OR MAPS FROM DIFFERENT CONFIGURATIONS
+    THIS FUNCTION DOES NOT KNOW ABOUT IT. PLEASE MAKE SURE TO CHECK
+    THAT THE CONFIG NAME ACTUALLY HAS THE FORMATION ENERGY CORRESPONDING
+    TO IT'S STRUCTURE (NOT THE BEST MAP).
+
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        ccasm query json style list of configurations
+        with comp and formation_energy queries present
+    calctype : str, optional
+        ccasm calctype (default = "default")
+
+    Returns
+    -------
+    list[str]
+        Paths of the ground state structures (CONTCARS) in a
+        casm project. For example if "SCEL1_1_1_1_0_0_0/0" is
+        a ground state, this function returns
+        ["training_data/SCEL1_1_1_1_0_0_0/0/calctype.``calctype``/run.final/CONTCAR"]
+
+    """
+
+    return [
+        os.path.join(
+            "training_data", config_name, "calctype." + calctype, "run.final", "CONTCAR"
+        )
+        for config_name in ground_state_config_names(selected_configurations)
+    ]
