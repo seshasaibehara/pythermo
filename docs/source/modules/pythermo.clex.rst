@@ -8,7 +8,8 @@ Submodules
    :maxdepth: 4
 
    pythermo.clex.binary
-   pythermo.clex.stan_analysis
+   pythermo.clex.stan
+   pythermo.clex.clex
 
 Module contents
 ---------------
