@@ -1,3 +1,3 @@
-from . import clex, binary
+from . import clex, binary, stan
 
-__all__ = ["clex", "binary"]
+__all__ = ["clex", "binary", "stan"]
