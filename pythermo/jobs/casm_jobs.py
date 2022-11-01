@@ -405,7 +405,7 @@ def modify_incar_magmoms(
                     for value, new_value in zip(
                         new_magmom["values"], new_magmom["new_values"]
                     ):
-                        magmom = np.where(np.allclose(magmom, value), new_value, magmom)
+                        magmom = np.where(np.isclose(magmom, value), new_value, magmom)
 
             index += n
 
