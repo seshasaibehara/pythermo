@@ -4,25 +4,34 @@ import matplotlib.pyplot as plt
 import thermocore.geometry.hull as thull
 
 
-def ground_state_indices(comps: np.ndarray, energies: np.ndarray) -> list[int]:
-    """Given comps and energies, returns a list of ground state indices
-    of comps and energies
+def ground_state_indices(
+    comps: np.ndarray, formation_energies: np.ndarray
+) -> list[int]:
+    """Given comps and formation_energies, returns a
+    list of ground state indices of comps and energies
+    ordered by ascending order of comps
 
     Parameters
     ----------
     comps : np.ndarray
-    energies : np.ndarray
+        compositions where each row corresponds to
+        a composition of a config
+    formation_energies : np.ndarray
+        formation energies as a vector
 
     Returns
     -------
     list[int]
-        Indices of ground states
+        Indices of ground states ordered by
+        ascending order of compositions
 
     """
-    binary_hull = thull.full_hull(comps, energies)
+    binary_hull = thull.full_hull(comps, formation_energies)
     lower_hull = thull.lower_hull(binary_hull)
 
-    return lower_hull[0].tolist()
+    ground_state_indices = lower_hull[0].tolist()
+    ground_state_indices.sort(key=lambda index: comps[index])
+    return ground_state_indices
 
 
 def order_ground_state_comps_and_energies(
@@ -74,10 +83,7 @@ def ground_state_comps_and_energies(
     ground_state_comps = [comps[index] for index in indices]
     ground_state_energies = [energies[index] for index in indices]
 
-    # sort them by comps
-    return order_ground_state_comps_and_energies(
-        ground_state_comps, ground_state_energies
-    )
+    return ground_state_comps, ground_state_energies
 
 
 def plot_binary_convex_hull(
@@ -358,8 +364,8 @@ def _intercepts_on_axes(
 
 
 def get_chemical_potentials(
-    ground_state_comps: np.ndarray,
-    ground_state_formation_energies: np.ndarray,
+    comps: np.ndarray,
+    formation_energies: np.ndarray,
     reference_energies: list,
     type_of_compound: str,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -370,8 +376,8 @@ def get_chemical_potentials(
 
     Parameters
     ----------
-    ground_state_comps : np.ndarray
-    ground_state_formation_energies : np.ndarray
+    comps : np.ndarray
+    formation_energies : np.ndarray
     reference_energies : list
     type_of_compound : str
 
@@ -380,7 +386,10 @@ def get_chemical_potentials(
     tuple[np.ndarray, np.ndarray]
 
     """
-    assert len(ground_state_comps) == len(ground_state_formation_energies)
+    (
+        ground_state_comps,
+        ground_state_formation_energies,
+    ) = ground_state_comps_and_energies(comps, formation_energies)
 
     first_character = type_of_compound.lower()[0]
     if first_character == "s":
@@ -488,3 +497,51 @@ def fetch_ground_state_relaxed_structure_paths(
         )
         for config_name in ground_state_config_names(selected_configurations)
     ]
+
+
+def fetch_ground_states_info(
+    selected_configurations: list[dict],
+    type_of_compound: str,
+    reference_energies: list[float],
+    reference_state_names: list[str] | None = None,
+) -> list[dict]:
+    """TODO: Docstring for fetch_ground_states_info.
+
+    Parameters
+    ----------
+    selected_configurations : TODO
+    type_of_compound : TODO
+    reference_states : TODO
+     : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    comps = np.array([config["comp"] for config in selected_configurations])
+    formation_energies = np.array(
+        [config["formation_energy"] for config in selected_configurations]
+    )
+
+    ground_state_comps, ground_state_energies = ground_state_comps_and_energies(
+        comps, formation_energies
+    )
+
+    ground_states_info = []
+    type_of_compound = type_of_compound.lower()[0]
+    if type_of_compound == "s":
+        left_chem_pot, right_chem_pot = get_chemical_potentials(
+            comps, formation_energies, reference_energies, "s"
+        )
+    else:
+        raise NotImplementedError("Interstitial compounds not implemented")
+
+    for index in ground_state_indices(comps, formation_energies):
+        ground_state_info = dict()
+        ground_state_info["comp"] = selected_configurations[index]["comp"][0]
+        ground_state_info["energy"] = selected_configurations[index]["energy"]
+
+    ground_states_info.append(ground_state_info)
+
+    return ground_states_info
