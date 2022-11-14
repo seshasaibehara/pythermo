@@ -11,6 +11,14 @@ setuptools.setup(
         "pythermo.scripts",
     ],
     entry_points={"console_scripts": ["casm-jobs=pythermo.scripts.casm_jobs:main"]},
-    install_requires=["numpy", "scipy"],
-    python_requires=">=3.7",
+    install_requires=[
+        "numpy",
+        "scipy",
+        "pymatgen",
+        "thermocore@git+https://github.com/Van-der-Ven-Group/thermocore@main#egg=thermocore",
+        "pandas",
+        "sklearn",
+        "matplotlib",
+    ],
+    python_requires=">=3.10",
 )
