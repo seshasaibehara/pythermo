@@ -1,2 +1,7 @@
 numpy>=1.21.2
 scipy>=1.7
+pymatgen
+git+https://github.com/Van-der-Ven-Group/thermocore@main#egg=thermocore
+pandas
+sklearn
+matplotlib
