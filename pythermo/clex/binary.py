@@ -34,31 +34,29 @@ def ground_state_indices(
     return ground_state_indices
 
 
-def order_ground_state_comps_and_energies(
-    ground_state_comps: np.ndarray, ground_state_formation_energies: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Order ground states by composition
+def ground_state_configs(selected_configurations: list[dict]) -> list[dict]:
+    """Given a list of selected configurations,
+    returns ground states among them
 
     Parameters
     ----------
-    ground_state_comps : np.ndarray
-    ground_state_formation_energies : np.ndarray
+    selected_configurations : list[dict]
+        ccasm query json style selection
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
-        Ordered ground state comps and energies
+    list[dict]
+        Ground state configs
 
     """
-    zipped_comps_eneriges = list(
-        zip(ground_state_comps, ground_state_formation_energies)
-    )
-    zipped_comps_eneriges.sort(key=lambda comp: comp[0])
 
-    return (
-        np.array([entry[0] for entry in zipped_comps_eneriges]),
-        np.array([entry[1] for entry in zipped_comps_eneriges]),
+    comps = np.array([config["comp"] for config in selected_configurations])
+    energies = np.array(
+        [config["formation_energy"] for config in selected_configurations]
     )
+    ground_states = ground_state_indices(comps, energies)
+
+    return [selected_configurations[i] for i in ground_states]
 
 
 def ground_state_comps_and_energies(
@@ -80,8 +78,8 @@ def ground_state_comps_and_energies(
     indices = ground_state_indices(comps, energies)
 
     # get ground state energies and comps
-    ground_state_comps = [comps[index] for index in indices]
-    ground_state_energies = [energies[index] for index in indices]
+    ground_state_comps = np.array([comps[index] for index in indices])
+    ground_state_energies = np.array([energies[index] for index in indices])
 
     return ground_state_comps, ground_state_energies
 
@@ -322,7 +320,7 @@ def convert_hull_distances_to_formation_energies(
 
 
 def _intercepts_on_axes(
-    ground_state_comps: np.ndarray, ground_state_formation_energies: np.ndarray
+    comps: np.ndarray, fes: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     """Given ground_state_comps and ground_state_formation_energies,
     calculates intercepts of ground states on both the axes of
@@ -338,10 +336,6 @@ def _intercepts_on_axes(
     tuple[np.ndarray, np.ndarray]
 
     """
-
-    comps, fes = order_ground_state_comps_and_energies(
-        ground_state_comps, ground_state_formation_energies
-    )
 
     # { [(fe(i+1) - fe(i)) / (comp(i+1) - comp(i))] *(-comp(i))} + fe(i)
     intercepts_on_left_axis = np.array(
@@ -438,12 +432,12 @@ def get_voltages(
     return -(chemical_potentials - reference_state) / number_of_electrons
 
 
-def ground_state_config_names(selected_configurations: list[dict]):
-    """TODO: Docstring for ground_state_config_names.
+def end_state_configs(ground_state_configs: list[dict]) -> list[dict]:
+    """TODO: Docstring for find_end_states.
 
     Parameters
     ----------
-    selected_configurations : TODO
+    ground_state_configs : TODO
 
     Returns
     -------
@@ -451,17 +445,17 @@ def ground_state_config_names(selected_configurations: list[dict]):
 
     """
 
-    comps = np.array([config["comp"] for config in selected_configurations])
-    energies = np.array(
-        [config["formation_energy"] for config in selected_configurations]
-    )
-    ground_states = ground_state_indices(comps, energies)
-
-    return [selected_configurations[i]["name"] for i in ground_states]
+    return [
+        config
+        for config in ground_state_configs
+        if np.isclose(config["comp"][0], 0.0) or np.isclose(config["comp"][0], 1.0)
+    ]
 
 
 def fetch_ground_state_relaxed_structure_paths(
-    selected_configurations: list[dict], calctype: str = "default"
+    selected_configurations: list[dict],
+    calctype: str = "default",
+    exclude_end_states: bool = True,
 ) -> list[str]:
     """Given a list of ``selected_configurations``, computes
     the ground states and makes a list of ground states and
@@ -480,6 +474,10 @@ def fetch_ground_state_relaxed_structure_paths(
         with comp and formation_energy queries present
     calctype : str, optional
         ccasm calctype (default = "default")
+    exclude_end_states: bool, optional
+        If True (default), excludes end state
+        (where comp is 0 or 1) contcars
+
 
     Returns
     -------
@@ -490,12 +488,30 @@ def fetch_ground_state_relaxed_structure_paths(
         ["training_data/SCEL1_1_1_1_0_0_0/0/calctype.``calctype``/run.final/CONTCAR"]
 
     """
+    ground_states = ground_state_configs(selected_configurations)
+    end_states = end_state_configs(ground_states)
+    if exclude_end_states:
+        return [
+            os.path.join(
+                "training_data",
+                config["name"],
+                "calctype." + calctype,
+                "run.final",
+                "CONTCAR",
+            )
+            for config in ground_states
+            if config not in end_states
+        ]
 
     return [
         os.path.join(
-            "training_data", config_name, "calctype." + calctype, "run.final", "CONTCAR"
+            "training_data",
+            config["name"],
+            "calctype." + calctype,
+            "run.final",
+            "CONTCAR",
         )
-        for config_name in ground_state_config_names(selected_configurations)
+        for config in ground_states
     ]
 
 
@@ -504,6 +520,7 @@ def fetch_ground_states_info(
     type_of_compound: str,
     reference_energies: list[float],
     reference_state_names: list[str] | None = None,
+    exclude_end_states: bool = True,
 ) -> list[dict]:
     """TODO: Docstring for fetch_ground_states_info.
 
@@ -511,8 +528,9 @@ def fetch_ground_states_info(
     ----------
     selected_configurations : TODO
     type_of_compound : TODO
-    reference_states : TODO
-     : TODO
+    reference_energies : TODO
+    reference_state_names : TODO
+    exclude_end_states : TODO
 
     Returns
     -------
@@ -524,11 +542,9 @@ def fetch_ground_states_info(
         [config["formation_energy"] for config in selected_configurations]
     )
 
-    ground_state_comps, ground_state_energies = ground_state_comps_and_energies(
-        comps, formation_energies
-    )
+    ground_states = ground_state_configs(selected_configurations)
+    end_states = end_state_configs(ground_states)
 
-    ground_states_info = []
     type_of_compound = type_of_compound.lower()[0]
     if type_of_compound == "s":
         left_chem_pot, right_chem_pot = get_chemical_potentials(
@@ -537,11 +553,49 @@ def fetch_ground_states_info(
     else:
         raise NotImplementedError("Interstitial compounds not implemented")
 
-    for index in ground_state_indices(comps, formation_energies):
+    if reference_state_names is None:
+        reference_state_names = ["left_chem_pot_range", "right_chem_pot_range"]
+
+    ground_states_info = []
+    for i, config in enumerate(ground_states):
+
+        # if ground states
+        if exclude_end_states:
+            if config in end_states:
+                continue
+
         ground_state_info = dict()
-        ground_state_info["comp"] = selected_configurations[index]["comp"][0]
-        ground_state_info["energy"] = selected_configurations[index]["energy"]
+        ground_state_info.update(config)
 
-    ground_states_info.append(ground_state_info)
+        if np.isclose(config["comp"][0], 0.0):
+            ground_state_info[reference_state_names[0]] = [
+                left_chem_pot[0][0],
+                left_chem_pot[0][0],
+            ]
+            ground_state_info[reference_state_names[1]] = [
+                right_chem_pot[0][0],
+                right_chem_pot[0][0],
+            ]
 
+        elif np.isclose(config["comp"][0], 1.0):
+            ground_state_info[reference_state_names[0]] = [
+                left_chem_pot[0][0],
+                left_chem_pot[0][0],
+            ]
+            ground_state_info[reference_state_names[1]] = [
+                right_chem_pot[0][0],
+                right_chem_pot[0][0],
+            ]
+
+        else:
+            ground_state_info[reference_state_names[0]] = [
+                left_chem_pot[i - 1][0],
+                left_chem_pot[i][0],
+            ]
+            ground_state_info[reference_state_names[1]] = [
+                right_chem_pot[i - 1][0],
+                right_chem_pot[i][0],
+            ]
+
+        ground_states_info.append(ground_state_info)
     return ground_states_info
