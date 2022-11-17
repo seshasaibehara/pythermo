@@ -17,7 +17,7 @@ setuptools.setup(
         "pymatgen",
         "thermocore@git+https://github.com/Van-der-Ven-Group/thermocore@main#egg=thermocore",
         "pandas",
-        "sklearn",
+        "scikit-learn",
         "matplotlib",
     ],
     python_requires=">=3.10",

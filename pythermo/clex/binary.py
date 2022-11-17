@@ -205,14 +205,14 @@ def indices_and_hull_distances_within_given_parameters(
     """
     lower_hull_distances = thull.lower_hull_distances(comps, energies)
 
-    indices_and_hull_distnaces = [
+    indices_and_hull_distances = [
         (index, hull_distance)
         for index, hull_distance in enumerate(lower_hull_distances)
         if hull_distance < max_distance and hull_distance > min_distance
     ]
 
-    return [entry[0] for entry in indices_and_hull_distnaces], [
-        entry[1] for entry in indices_and_hull_distnaces
+    return [entry[0] for entry in indices_and_hull_distances], [
+        entry[1] for entry in indices_and_hull_distances
     ]
 
 
