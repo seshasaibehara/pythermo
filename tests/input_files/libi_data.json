@@ -1,0 +1,55 @@
+[
+{
+    "comp": [0.000000000000],
+    "formation_energy": 0.000000000000,
+    "name": "SCEL1_1_1_1_0_0_0/0",
+    "selected": true
+},
+{
+    "comp": [0.333333333333],
+    "formation_energy": -0.500283411000,
+    "name": "SCEL6_3_1_2_0_1_0/8",
+    "selected": true
+},
+{
+    "comp": [1.000000000000],
+    "formation_energy": 0.129379167000,
+    "name": "SCEL1_1_1_1_0_0_0/1",
+    "selected": true
+},
+{
+    "comp": [0.500000000000],
+    "formation_energy": -0.386793266500,
+    "name": "SCEL2_2_1_1_0_1_1/0",
+    "selected": true
+},
+{
+    "comp": [0.250000000000],
+    "formation_energy": -0.548678983250,
+    "name": "SCEL4_4_1_1_0_3_3/0",
+    "selected": true
+},
+{
+    "comp": [0.500000000000],
+    "formation_energy": -0.199087766500,
+    "name": "SCEL4_4_1_1_0_3_3/1",
+    "selected": true
+},
+{
+    "comp": [1.000000],
+    "formation_energy": 0,
+    "name": "bi_trigonal",
+    "selected": true
+},
+{
+    "comp": [0.500000000000],
+    "formation_energy": -0.3990448665,
+    "name": "libi_bct",
+    "selected": true
+},
+{
+    "comp": [0.750000000000],
+    "formation_energy": -0.045998549750,
+    "name": "SCEL4_4_1_1_0_3_3/2",
+    "selected": true
+}]
