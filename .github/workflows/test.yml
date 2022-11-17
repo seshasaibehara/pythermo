@@ -12,14 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python 3.10
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: "3.10"
           cache: "pip"
       - name: Install depenedencies
         run: |
-          pip install --upgrade pip wheel
-          pip install -r requirements.txt
-          pip install pytest
+          pip install --upgrade pip wheel pytest
+          pip install .
       - name: Run tests
         run: pytest --exitfirst --verbose --failed-first
