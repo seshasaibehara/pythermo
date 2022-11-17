@@ -20,6 +20,5 @@ jobs:
         run: |
           pip install --upgrade pip wheel pytest
           pip install .
-          pip install -r requirements.txt
       - name: Run tests
         run: pytest --exitfirst --verbose --failed-first
