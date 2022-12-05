@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def get_mean_ecis(eci_sets: np.ndarray) -> np.ndarray:
+def get_mean_eci_set(eci_sets: np.ndarray) -> np.ndarray:
     """Given a matrix of ``eci_sets`` where
     each column corresponds to one set of ecis,
     returns the mean of all the sets
@@ -47,7 +47,7 @@ def get_correlation_matrix(configs: list[dict]) -> np.ndarray:
     return np.array([config["corr"] for config in configs])
 
 
-def get_predicted_formation_energy(
+def get_predicted_formation_energies(
     correlation_matrix: np.ndarray, eci_sets: np.ndarray
 ) -> np.ndarray:
     """Given a ``correlation_matrix`` and ``eci_sets``,

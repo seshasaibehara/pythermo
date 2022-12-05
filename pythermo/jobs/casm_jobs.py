@@ -687,6 +687,9 @@ def remove_completed_calculations(
     a status.json file will be read from training_data/configname/calctype/status.json.
     If status["status"] is "complete", a line will be added to the output as
     "rm -rf training_data/configname/calctype"
+    If status["status"] is "started", but the calculation termintated because
+    it hit the time limit, status["status"] will be updated to ["failed"]
+    and this calculation will also be remove
 
     WARNING: USE THIS STRING TO WRITE A BASH FILE AND EXECUTE IT ONLY IF YOU WANT
     TO REMOVE COMPLETED CALCULATIONS ON A REMOTE CLUSTER. MAKE SURE THE DATA IS
@@ -715,6 +718,7 @@ def remove_completed_calculations(
     remove_str += (
         "#WARNING: USE IT ON A REMOTE CLUSTER AFTER THE CALCULATIONS ARE SYNCED\n"
     )
+
     for calctype_dir in calctype_dirs:
         with open(os.path.join(calctype_dir, "status.json"), "r") as f:
             status = json.load(f)
@@ -722,7 +726,67 @@ def remove_completed_calculations(
         if status["status"] == "complete":
             remove_str += "rm -rf " + str(calctype_dir) + "/\n"
 
+        # if status is started but calculation ended
+        # due to time limit
+        if status[
+            "status"
+        ] == "started" and is_calculation_terminated_due_to_time_limit(calctype_dir):
+
+            # remove this config as well
+            remove_str += "rm -rf " + str(calctype_dir) + "/\n"
+
+            # update status with failed
+            with open(os.path.join(calctype_dir, "status.json"), "w") as f:
+                json.dump(dict(status="failed"), f)
+
     return remove_str
+
+
+def is_calculation_terminated_due_to_time_limit(calctype_dir: str) -> bool:
+    """Given a calculation directory, this
+    function determines whether the vasp
+    calculation is terminated due to time
+    limit by checking if "process killed (SIGTERM)"
+    string exists in stdout in any of the run.*
+    dirs
+
+    Parameters
+    ----------
+    calctype_dir : str
+        calculation directory
+
+    Returns
+    -------
+    bool
+        True if calculation is terminated
+        due to time limit, else False
+    """
+
+    # in case of pbs, read "*.e" file to see if time limit exceeded
+    pbs_error_file = [file for file in os.listdir(calctype_dir) if ".e" in file]
+
+    # in case of slurm, read "*.out" file to see if time limit exceeded
+    slurm_out_file = [file for file in os.listdir(calctype_dir) if ".out" in file]
+
+    if len(slurm_out_file) != 0:
+        with open(os.path.join(calctype_dir, slurm_out_file[0]), "r") as f:
+            if "DUE TO TIME LIMIT" in f.read():
+                return True
+
+    if len(pbs_error_file) != 0:
+        with open(os.path.join(calctype_dir, pbs_error_file[0]), "r") as f:
+            if "walltime" in f.read() and "exceeded limit" in f.read():
+                return True
+
+    # if the above pbs and slurm out files do not catch the error,
+    # try this by reading stdouts
+    run_dirs = [dir for dir in os.listdir(calctype_dir) if "run" in dir]
+    for run_dir in run_dirs:
+        with open(os.path.join(calctype_dir, run_dir, "stdout"), "r") as f:
+            if "process killed (SIGTERM)" in f.read():
+                return True
+
+    return False
 
 
 def write_initial_status_files(

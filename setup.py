@@ -9,6 +9,7 @@ setuptools.setup(
         "pythermo.jobs",
         "pythermo.xtal",
         "pythermo.scripts",
+        "pythermo.mc",
     ],
     entry_points={"console_scripts": ["casm-jobs=pythermo.scripts.casm_jobs:main"]},
     install_requires=[

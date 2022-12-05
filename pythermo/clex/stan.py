@@ -1,6 +1,11 @@
 import os
+import stan
 import json
+import random
+import pickle
 import numpy as np
+import thermocore as tc
+import pythermo.clex.clex as pyclex
 import sklearn.model_selection as sk
 
 
@@ -62,6 +67,8 @@ def grid_up_sigma_for_convergence(
     kfold_splits: int = 5,
     convergence_dir: str = "./sigma_convergence",
     init_sigma_dir: int = 0,
+    num_chains: int = 4,
+    num_samples: int = 1000,
 ) -> None:
     """For a given list of sigmas, this function
     goes into the ``convergence_dir``, creates
@@ -112,7 +119,16 @@ def grid_up_sigma_for_convergence(
         # with stan model info and alpha value
         ce_model = stan_model.replace("sigma", str(sigma))
         with open(os.path.join(sigma_dir, "info.json"), "w") as f:
-            json.dump(dict(stan_model=ce_model, sigma=sigma, alpha=alpha), f)
+            json.dump(
+                dict(
+                    stan_model=ce_model,
+                    sigma=sigma,
+                    alpha=alpha,
+                    num_chains=num_chains,
+                    num_samples=num_samples,
+                ),
+                f,
+            )
 
         # do a kfold split to the data
         # and write test, train data into
@@ -129,6 +145,8 @@ def grid_up_alpha_for_convergence(
     kfold_splits: int = 5,
     convergence_dir: str = "./alpha_convergence",
     init_alpha_dir: int = 0,
+    num_chains: int = 4,
+    num_samples: int = 1000,
 ) -> None:
     """For a given list of alphas, this function
     goes into the ``convergence_dir``, creates
@@ -178,7 +196,16 @@ def grid_up_alpha_for_convergence(
         # with stan model info and alpha value
         ce_model = stan_model.replace("alpha", str(alpha))
         with open(os.path.join(alpha_dir, "info.json"), "w") as f:
-            json.dump(dict(stan_model=ce_model, alpha=alpha, sigma=sigma), f)
+            json.dump(
+                dict(
+                    stan_model=ce_model,
+                    alpha=alpha,
+                    sigma=sigma,
+                    num_chains=num_chains,
+                    num_samples=num_samples,
+                ),
+                f,
+            )
 
         # do a kfold split to the data
         # and write test, train data into
@@ -229,5 +256,117 @@ def _split_and_write_kfold_data(
 
         with open(os.path.join(kfold_dir, "test_data.json"), "w") as f:
             json.dump(test_configs, f)
+
+    return None
+
+
+def run_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int) -> None:
+    """TODO: Docstring for run_gridded_up_stan_runs.
+
+    Parameters
+    ----------
+    run_dir : TODO
+    init_dir : TODO
+    end_dir : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+
+    for dir_num in range(init_dir, end_dir + 1):
+        dir = os.path.join(run_dir, str(dir_num))
+
+        with open(os.path.join(dir, "info.json"), "r") as f:
+            model_info = json.load(f)
+
+        stan_model = model_info["stan_model"]
+        num_chains = model_info["num_chains"]
+        num_samples = model_info["num_samples"]
+
+        kfold_dir_names = [
+            kfold_dir for kfold_dir in os.listdir(dir) if "kfold_" in kfold_dir
+        ]
+
+        for kfold_dir_name in kfold_dir_names:
+            kfold_dir = os.path.join(dir, kfold_dir_name)
+
+            with open(os.path.join(kfold_dir, "train_data.json"), "r") as f:
+                train_configs = json.load(f)
+
+            corr_train = [config["corr"] for config in train_configs]
+            energies_train = [config["formation_energy"] for config in train_configs]
+            ce_data = {
+                "n_eci": len(corr_train[0]),
+                "n_configs": len(energies_train),
+                "corr": corr_train,
+                "energies": energies_train,
+            }
+            posterior = stan.build(stan_model, data=ce_data)
+            fit = posterior.sample(num_chains=num_chains, num_samples=num_samples)
+            with open(os.path.join(kfold_dir, "train_results.pkl"), "wb") as f:
+                pickle.dump(fit, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    return None
+
+
+def sample_random_eci_sets_for_mc(
+    casm_root_dir: str,
+    eci_sets: np.ndarray,
+    basis_dict: dict,
+    num_of_ecis,
+    init_eci_dir_number: int = 0,
+    include_mean_eci=True,
+    casm_clex="formation_energy",
+    calctype="default",
+    reftype="default",
+    bsettype="default",
+):
+    """TODO: Docstring for write_random_eci_sets.
+
+    Parameters
+    ----------
+    TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    clex_dir = os.path.join(
+        casm_root_dir,
+        "cluster_expansions",
+        "clex." + casm_clex,
+        "calctype." + calctype,
+        "ref." + reftype,
+        "bset." + bsettype,
+    )
+
+    if include_mean_eci:
+        mean_eci_set = pyclex.get_mean_eci_set(eci_sets)
+        mean_eci_dict = tc.io.casm.append_ECIs_to_basis_data(mean_eci_set, basis_dict)
+        mean_eci_dir = os.path.join(clex_dir, "eci.mean")
+        os.mkdir(mean_eci_dir)
+
+        with open(
+            os.path.join(mean_eci_dir, "eci.json"),
+            "w",
+        ) as f:
+            json.dump(mean_eci_dict, f)
+
+    for eci_number in range(init_eci_dir_number, init_eci_dir_number + num_of_ecis + 1):
+        eci_dir = os.path.join(clex_dir, "eci." + str(eci_number))
+        os.mkdir(eci_dir)
+
+        # TODO: Should they be truly random, instead of a single column?
+        eci_column_number = random.randint(0, len(eci_sets) - 1)
+        random_eci_set = eci_sets[:, eci_column_number]
+        random_eci_dict = tc.io.casm.append_ECIs_to_basis_data(
+            random_eci_set, basis_dict
+        )
+
+        with open(os.path.join(eci_dir, "eci.json"), "w") as f:
+            json.dump(random_eci_dict, f)
 
     return None
