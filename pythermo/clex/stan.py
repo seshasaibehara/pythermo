@@ -311,6 +311,63 @@ def run_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int) -> None:
     return None
 
 
+def analyze_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int):
+    """TODO: Docstring for analyze_gridded_up_stan_runs.
+
+    Parameters
+    ----------
+    arg1 : TODO
+
+    Returns
+    -------
+    TODO
+
+    """
+    dir_range = range(init_dir, end_dir + 1)
+
+    mean_rms_errors = []
+    for dir_num in dir_range:
+        dir = os.path.join(run_dir, str(dir_num))
+        kfold_dir_names = [
+            kfold_dir for kfold_dir in os.listdir(dir) if "kfold_" in kfold_dir
+        ]
+        kfold = len(kfold_dir_names)
+
+        mean_rms_at_one_dir = 0
+        for kfold_dir in kfold_dir_names:
+            with open(os.path.join(dir, kfold_dir, "test_data.json"), "r") as f:
+                test_data = json.load(f)
+
+            with open(os.path.join(dir, kfold_dir, "train_results.pkl"), "rb") as f:
+                train_results = pickle.load(f)
+
+            test_corrs = pyclex.get_correlation_matrix(test_data)
+            test_formation_energies = np.array(
+                [config["formation_energy"] for config in test_data]
+            )
+
+            eci_sets = get_eci_sets(train_results)
+            test_predicted_formation_energies = pyclex.get_predicted_formation_energies(
+                test_corrs, eci_sets
+            )
+            test_mean_predicted_formation_energies = (
+                pyclex.get_mean_predicted_formation_energies(
+                    test_predicted_formation_energies
+                )
+            )
+            rms_of_fit = pyclex.get_rms_error_of_fit(
+                test_mean_predicted_formation_energies, test_formation_energies
+            )
+
+            mean_rms_at_one_dir += rms_of_fit
+
+        mean_rms_at_one_dir = mean_rms_at_one_dir / kfold
+
+        mean_rms_errors.append(mean_rms_at_one_dir)
+
+    return mean_rms_errors
+
+
 def sample_random_eci_sets_for_mc(
     casm_root_dir: str,
     eci_sets: np.ndarray,

@@ -20,6 +20,7 @@ setuptools.setup(
         "pandas",
         "scikit-learn",
         "matplotlib",
+        "pystan",
     ],
     python_requires=">=3.10",
 )
