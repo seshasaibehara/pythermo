@@ -314,10 +314,14 @@ def write_incars(
 
     """
     calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
-    [
-        incar.write_file(os.path.join(calctype_dir, "INCAR"))
-        for incar, calctype_dir in zip(incars, calctype_dirs)
-    ]
+    for incar, calctype_dir in zip(incars, calctype_dirs):
+        incar_string = str(incar)
+        modified_incar_string = incar_string.replace("True", ".TRUE.")
+        modified_incar_string = modified_incar_string.replace("False", ".FALSE.")
+
+        with open(os.path.join(calctype_dir, "INCAR"), "w") as f:
+            f.write(modified_incar_string)
+
     return None
 
 
