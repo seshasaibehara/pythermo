@@ -164,6 +164,8 @@ def plot_e2e3_strain_energies_along_with_equivalents(
         im = ax.contourf(E2, E3, grid_energies, **plotting_options)
 
     else:
+        if cut_off_energy is not None:
+            all_energies = np.where(all_energies < cut_off_energy, all_energies, np.nan)
         im = ax.scatter(all_e2s, all_e3s, c=all_energies, **plotting_options)
 
     return im

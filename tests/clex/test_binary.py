@@ -21,7 +21,7 @@ def libi_data(root_pytest_dir: str) -> list[dict]:
 
     """
     with open(
-        os.path.join(root_pytest_dir, "tests", "input_files", "libi_data.json"), "r"
+        os.path.join(root_pytest_dir, "tests", "input_files", "hull_data.json"), "r"
     ) as f:
         return json.load(f)
 
