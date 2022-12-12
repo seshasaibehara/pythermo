@@ -4,9 +4,7 @@ import shlex
 import subprocess
 
 
-def run_mc_for_different_eci_sets(
-    mc_settings: dict, eci_names: list[str], quiet=False
-) -> None:
+def run_mc_for_different_eci_sets(mc_settings: dict, eci_names: list[str]) -> None:
     """TODO: Docstring for  run_mc_for_different_eci_sets.
 
     Parameters
@@ -22,13 +20,21 @@ def run_mc_for_different_eci_sets(
     """
     cwd = os.getcwd()
 
+    status = dict()
+    status["complete"] = []
+    status["unsubmitted"] = eci_names
+
     for eci in eci_names:
+        status["running"] = eci
+        status["unsubmitted"].remove(eci)
+
+        with open(os.path.join(cwd, "status.json"), "w") as f:
+            json.dump(status, f)
+
         # set eci in casm proj
         casm_eci_commands = shlex.split("ccasm settings --set-eci " + eci)
         casm_set_eci = subprocess.Popen(casm_eci_commands, stdout=subprocess.PIPE)
         casm_set_eci.communicate()
-        if not quiet:
-            print("Set ccasm eci settings to " + eci)
 
         # make mc dir
         mc_dir = os.path.join(cwd, "eci." + eci)
@@ -39,9 +45,6 @@ def run_mc_for_different_eci_sets(
             json.dump(mc_settings, f)
 
         # run mc
-        if not quiet:
-            print("Running MC for eci set ", eci, " ....")
-
         os.chdir(mc_dir)
         mc_log = open("stdout", "a")
         casm_mc_commands = shlex.split("ccasm monte -s input_settings.json")
@@ -50,8 +53,6 @@ def run_mc_for_different_eci_sets(
         mc_log.close()
         os.chdir(cwd)
 
-        if not quiet:
-            print("Finished running MC for eci set ", eci, " ...")
-            print("---------------------------------------------")
+        status["complete"].append(eci)
 
     return None

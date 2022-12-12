@@ -311,7 +311,7 @@ def run_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int) -> None:
     return None
 
 
-def analyze_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int):
+def mean_kfold_rms_from_gridded_up_stan_runs(run_dir: str, init_dir: int, end_dir: int):
     """TODO: Docstring for analyze_gridded_up_stan_runs.
 
     Parameters
