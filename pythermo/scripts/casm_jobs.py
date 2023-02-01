@@ -309,6 +309,123 @@ def add_remove_arguments(subparser: argparse.ArgumentParser) -> None:
     return None
 
 
+def add_relax_report_arguments(subparser: argparse.ArgumentParser) -> None:
+    """Add relax_report arguments to the given subparser
+
+    Parameters
+    ----------
+    subparser : argparse.ArgumentParser
+        subparser
+
+    Returns
+    -------
+    None
+
+    """
+    subparser.add_argument(
+        "--dir", "-d", type=str, required=True, help="Vasp relaxation directory"
+    )
+
+    return None
+
+
+def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
+    """Add hop arguments to the given subparser
+
+    Parameters
+    ----------
+    subparser : subparser.ArgumentParser
+        subparser
+
+    Returns
+    -------
+    None
+
+    """
+    hop = subparser.add_subparsers(dest="hop")
+
+    # submit vasp runs
+    relax = hop.add_parser(
+        "relax", help="Setup init and final runs for hop environments"
+    )
+    relax.add_argument(
+        "--dirs",
+        "-d",
+        nargs="+",
+        required=True,
+        help="Path to hop environment directories containing POSCAR_init.vasp and POSCAR_final.vasp",
+    )
+    relax.add_argument(
+        "--input",
+        "-i",
+        type=str,
+        required=True,
+        help="Path to vasp input file directory",
+    )
+    relax.add_argument(
+        "--dry-run",
+        type=str,
+        default="False",
+        help="If dry run, only toss and submit files are written",
+    )
+
+    # resubmit unfinished vasp runs
+    relax_resubmit = hop.add_parser(
+        "relax_resubmit", help="Resubmit init and final runs if not done"
+    )
+    relax_resubmit.add_argument(
+        "--dirs",
+        "-d",
+        nargs="+",
+        required=True,
+        help="Path to hop environment directories containing init and final vasp runs",
+    )
+    relax_resubmit.add_argument(
+        "--dry-run",
+        type=str,
+        default="False",
+        help="If dry run, only toss and submit files are written",
+    )
+
+    # submit neb runs
+    neb = hop.add_parser(
+        "neb", help="Setup NEB images and VASP files for hop environments"
+    )
+    neb.add_argument(
+        "--dirs",
+        "-d",
+        nargs="+",
+        required=True,
+        help="Path to hop environment directories containing finished VASP runs for init and final images",
+    )
+    neb.add_argument(
+        "--input",
+        "-i",
+        type=str,
+        required=True,
+        help="Path to VASP NEB input file directory",
+    )
+
+    # Analyze & resubmit neb runs
+    neb_resubmit = hop.add_parser(
+        "neb_resubmit",
+        help="Analyze and resubmit NEB images and VASP files for hop environments",
+    )
+    neb_resubmit.add_argument(
+        "--dirs",
+        "-d",
+        nargs="+",
+        required=True,
+        help="Path to hop environment directories containing a finished NEB run (can be complete or incomplete)",
+    )
+    neb_resubmit.add_argument(
+        "--dry-run",
+        type=str,
+        default="False",
+        help="If dry run, only status of each NEB hop is printed",
+    )
+
+
 def execute_toss(args: argparse.ArgumentParser) -> None:
     """Execute toss given arguments
 
@@ -503,6 +620,67 @@ def execute_remove(args: argparse.ArgumentParser) -> None:
     return None
 
 
+def execute_relax_report(args: argparse.ArgumentParser) -> None:
+    """Exectue relax_report command given the arguments
+
+    Parameters
+    ----------
+    args : argparse.ArgumentParser
+        Remove arguments
+
+    Returns
+    -------
+    None
+
+    """
+    properties_dict = pyjobs.casm_jobs.properties_json_from_relaxation_dir(args.dir)
+
+    with open(os.path.join(args.dir, "./properties.calc.json"), "w") as f:
+        json.dump(properties_dict, f)
+
+    return None
+
+
+def execute_hop(args: argparse.ArgumentParser) -> None:
+    """Execute modify magmoms given arguments
+
+    Parameters
+    ----------
+    args : argparse.ArgumentParser
+        modify magmom arguments
+
+    Returns
+    -------
+    None
+
+    """
+    if args.hop == "relax":
+        hop_env_dirs = args.dirs
+        vasp_input_dir = args.input
+        pyjobs.casm_jobs.setup_vasp_relax_runs_for_hop_envs(
+            hop_env_dirs, vasp_input_dir, _sanitize_bool_args(args.dry_run)
+        )
+
+    if args.hop == "relax_resubmit":
+        hop_env_dirs = args.dirs
+        pyjobs.casm_jobs.resubmit_incomplete_vasp_runs_for_hop_envs(
+            hop_env_dirs, _sanitize_bool_args(args.dry_run)
+        )
+
+    if args.hop == "neb":
+        hop_env_dirs = args.dirs
+        vasp_input_dir = args.input
+        pyjobs.casm_jobs.setup_nebs_for_hops(hop_env_dirs, vasp_input_dir)
+
+    if args.hop == "neb_resubmit":
+        hop_env_dirs = args.dirs
+        pyjobs.casm_jobs.analyze_and_resubmit_nebs_for_hops(
+            hop_env_dirs, _sanitize_bool_args(args.dry_run)
+        )
+
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser("Helpful functions for use with casm")
     subparser = parser.add_subparsers(dest="command")
@@ -540,6 +718,16 @@ def main():
     )
     add_remove_arguments(remove_completed_calculations)
 
+    # write properties.calc.json, given a vasp relaxation dir
+    relax_report = subparser.add_parser(
+        "relax_report", help="Writes properties.calc.json"
+    )
+    add_relax_report_arguments(relax_report)
+
+    # hop env helpers
+    hop = subparser.add_parser("hop", help="Helper functions for hop environments")
+    add_hop_arguments(hop)
+
     # parse all args
     args = parser.parse_args()
 
@@ -557,6 +745,12 @@ def main():
 
     if args.command == "remove":
         execute_remove(args)
+
+    if args.command == "relax_report":
+        execute_relax_report(args)
+
+    if args.command == "hop":
+        execute_hop(args)
 
 
 if __name__ == "__main__":
