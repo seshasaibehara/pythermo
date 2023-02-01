@@ -381,7 +381,6 @@ def modify_incar_magmoms(
 
     modifed_incars = []
     for incar, poscar in zip(incars, poscars):
-
         # if noncollinear calculations are found in INCAR, STOP!
         incar_keys = list(incar.keys())
         if "LNONCOLLINEAR" in incar_keys or "LSORBIT" in incar_keys:
@@ -736,7 +735,6 @@ def remove_completed_calculations(
         if status[
             "status"
         ] == "started" and is_calculation_terminated_due_to_time_limit(calctype_dir):
-
             # remove this config as well
             remove_str += "rm -rf " + str(calctype_dir) + "/\n"
 
@@ -1020,7 +1018,6 @@ def setup_vasp_relax_runs_for_hop_envs(
     submit_str += "configs=(\n"
 
     for hop_dir in hop_env_dirs:
-
         # make init dir and copy POSCAR_init to init/POSCAR
         init_dir = os.path.join(hop_dir, "init")
         if not dry_run:
@@ -1366,7 +1363,6 @@ def setup_nebs_for_hops(hop_env_dirs: list[str], neb_input_file_dir: str) -> Non
     submit_str = "#!/bin/bash\n"
     submit_str += "configs=(\n"
     for hop_dir in hop_env_dirs:
-
         init_dir = os.path.join(hop_dir, "init")
         final_dir = os.path.join(hop_dir, "final")
 
@@ -1503,7 +1499,6 @@ def analyze_and_resubmit_nebs_for_hops(
             continue
 
         if status == "complete":
-
             # copy init OUTCAR to 00/
             copy_init_outcar_args = shlex.split(
                 "cp "

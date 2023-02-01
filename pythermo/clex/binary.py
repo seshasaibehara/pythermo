@@ -558,7 +558,6 @@ def fetch_ground_states_info(
 
     ground_states_info = []
     for i, config in enumerate(ground_states):
-
         # if ground states
         if exclude_end_states:
             if config in end_states:

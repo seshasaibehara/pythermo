@@ -244,7 +244,6 @@ def _split_and_write_kfold_data(
     kfold = sk.KFold(kfold_splits)
 
     for j, (train_indices, test_indices) in enumerate(kfold.split(corrs)):
-
         train_configs = [configs[train_index] for train_index in train_indices]
         test_configs = [configs[test_index] for test_index in test_indices]
 

@@ -150,7 +150,6 @@ def plot_e2e3_strain_energies(
         all_energies = energies
 
     if smooth:
-
         E2, E3 = np.meshgrid(
             np.linspace(np.min(all_e2s), np.max(all_e2s), grid_points_along_one_axis),
             np.linspace(np.min(all_e3s), np.max(all_e3s), grid_points_along_one_axis),
