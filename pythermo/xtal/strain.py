@@ -77,10 +77,11 @@ def symmetrically_equivalent_e2e3s(
     )
 
 
-def plot_e2e3_strain_energies_along_with_equivalents(
+def plot_e2e3_strain_energies(
     ax: plt.axis,
     e2e3s: np.ndarray,
     energies: np.ndarray,
+    plot_equivalents: bool = True,
     smooth: bool = True,
     grid_points_along_one_axis: int = 1000,
     cut_off_energy: float | None = None,
@@ -134,16 +135,21 @@ def plot_e2e3_strain_energies_along_with_equivalents(
     for key, value in kwargs.items():
         plotting_options[key] = value
 
-    e2e3s_equiv = symmetrically_equivalent_e2e3s(e2e3s)
-    all_e2e3s = np.vstack((e2e3s, e2e3s_equiv))
-    all_e2s = all_e2e3s[:, 0]
-    all_e3s = all_e2e3s[:, 1]
-    all_energies = np.hstack(
-        (energies, energies, energies, energies, energies, energies)
-    )
+    if plot_equivalents:
+        e2e3s_equiv = symmetrically_equivalent_e2e3s(e2e3s)
+        all_e2e3s = np.vstack((e2e3s, e2e3s_equiv))
+        all_e2s = all_e2e3s[:, 0]
+        all_e3s = all_e2e3s[:, 1]
+        all_energies = np.hstack(
+            (energies, energies, energies, energies, energies, energies)
+        )
+    else:
+        all_e2e3s = e2e3s
+        all_e2s = e2e3s[:, 0]
+        all_e3s = e2e3s[:, 1]
+        all_energies = energies
 
     if smooth:
-
         E2, E3 = np.meshgrid(
             np.linspace(np.min(all_e2s), np.max(all_e2s), grid_points_along_one_axis),
             np.linspace(np.min(all_e3s), np.max(all_e3s), grid_points_along_one_axis),
