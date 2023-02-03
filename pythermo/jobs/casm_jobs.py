@@ -812,9 +812,9 @@ def setup_continuing_vasp_relaxandstatic_run(vasp_run_dir: str) -> None:
     return None
 
 
-def resubmit_vasp_runs_for_given_configs(
+def setup_continuing_vasp_runs_for_given_configs(
     selected_configurations: list[dict], calctype: str = "default"
-):
+) -> None:
     """Given a list of configs, this function sets up
     a continuing vasp run in each config/calctype_dir
 

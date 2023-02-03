@@ -207,32 +207,12 @@ def add_submit_arguments(subparser: argparse.ArgumentParser) -> None:
         default=None,
         help="path to relaxandstatic.sh file (default=training_data/settings/calctype.default/relaxandstatic.sh)",
     )
-
-
-def add_resubmit_arguments(subparser: argparse.ArgumentParser) -> None:
-    """Add resubmit arguments to the given subparser
-
-    Parameters
-    ----------
-    subparser : argparse.ArgumentParser
-        subparser
-
-    Returns
-    -------
-    None
-
-    """
-    _add_infile_argument(subparser)
-    _add_outfile_argument(subparser)
     subparser.add_argument(
-        "--queue",
-        "-q",
-        type=str,
-        choices=["slurm", "pbs"],
-        required=True,
-        help="HPC cluster queue type",
+        "--re-run",
+        nargs="?",
+        default="False",
+        help="If true, sets up continuing vasp run by copying POSCAR from CONTCAR of max run.",
     )
-    _add_calctype_argument(subparser)
 
 
 def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
@@ -375,6 +355,7 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
     # resubmit unfinished vasp runs
+    # TODO: Combine this with relax
     relax_resubmit = hop.add_parser(
         "relax_resubmit", help="Resubmit init and final runs if not done"
     )
@@ -412,6 +393,7 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
     # Analyze & resubmit neb runs
+    # TODO: Combine this with NEB
     neb_resubmit = hop.add_parser(
         "neb_resubmit",
         help="Analyze and resubmit NEB images and VASP files for hop environments",
@@ -476,6 +458,11 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
     """
     selection = _configuration_list(args.infile)
 
+    if _sanitize_bool_args(args.re_run):
+        pyjobs.casm_jobs.setup_continuing_vasp_runs_for_given_configs(
+            selection, args.calctype
+        )
+
     # copy relaxandstatic.sh to given configurations
     copy_commands = pyjobs.casm_jobs.copy_relaxandstatic_cmds(
         selection, args.relaxandstatic, args.calctype
@@ -494,34 +481,6 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
 
     # write initial status file
     pyjobs.casm_jobs.write_initial_status_files(selection, args.calctype)
-
-    # generate submit script
-    submit_str = pyjobs.casm_jobs.submit_script_str(
-        selection, args.queue, args.calctype
-    )
-    with open(args.outfile, "w") as f:
-        f.write(submit_str)
-
-    return None
-
-
-def execute_resubmit(args: argparse.ArgumentParser) -> None:
-    """Execute resubmit given arguments
-
-    Parameters
-    ----------
-    args : argparse.ArgumentParser
-        Submit arguments
-
-    Returns
-    -------
-    None
-
-    """
-    selection = _configuration_list(args.infile)
-
-    # setup new vasp runs
-    pyjobs.casm_jobs.resubmit_vasp_runs_for_given_configs(selection, args.calctype)
 
     # generate submit script
     submit_str = pyjobs.casm_jobs.submit_script_str(
@@ -600,7 +559,7 @@ def execute_magnetism(args: argparse.ArgumentParser) -> None:
 
 
 def execute_remove(args: argparse.ArgumentParser) -> None:
-    """Exectue remove command given the arguments
+    """Execute remove command given the arguments
 
     Parameters
     ----------
@@ -625,7 +584,7 @@ def execute_remove(args: argparse.ArgumentParser) -> None:
 
 
 def execute_relax_report(args: argparse.ArgumentParser) -> None:
-    """Exectue relax_report command given the arguments
+    """Execute relax_report command given the arguments
 
     Parameters
     ----------
@@ -702,14 +661,7 @@ def main():
     )
     add_submit_arguments(submit)
 
-    # resubmit script
-    resubmit = subparser.add_parser(
-        "resubmit",
-        help="Resubmits incomplete vasp calculations from a given list of casm configurations and writes out submit.sh script",
-    )
-    add_resubmit_arguments(resubmit)
-
-    # modify incars
+    # magnetism stuff
     magnetism = subparser.add_parser(
         "magnetism",
         help="Magnetism related functionality such as modify/visualize in a casm project",
@@ -740,9 +692,6 @@ def main():
 
     if args.command == "submit":
         execute_submit(args)
-
-    if args.command == "resubmit":
-        execute_resubmit(args)
 
     if args.command == "magnetism":
         execute_magnetism(args)
