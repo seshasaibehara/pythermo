@@ -209,6 +209,32 @@ def add_submit_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_resubmit_arguments(subparser: argparse.ArgumentParser) -> None:
+    """Add resubmit arguments to the given subparser
+
+    Parameters
+    ----------
+    subparser : argparse.ArgumentParser
+        subparser
+
+    Returns
+    -------
+    None
+
+    """
+    _add_infile_argument(subparser)
+    _add_outfile_argument(subparser)
+    subparser.add_argument(
+        "--queue",
+        "-q",
+        type=str,
+        choices=["slurm", "pbs"],
+        required=True,
+        help="HPC cluster queue type",
+    )
+    _add_calctype_argument(subparser)
+
+
 def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
     """Add modify magmom arguments to the given subparser
 
@@ -265,27 +291,6 @@ def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     visualize.add_argument(
         "--outfile", "-o", type=str, default=None, help="Path to outcar mcif file"
-    )
-
-
-def add_configs_arguments(subparser: argparse.ArgumentParser) -> None:
-    """Add configs arguments to the given subparser
-
-    Parameters
-    ----------
-    subparser : argparse.ArgumentParser
-        subparser
-
-    Returns
-    -------
-    None
-
-    """
-    subparser.add_argument(
-        "--infile", "-i", required=True, type=str, help="Path to input file"
-    )
-    subparser.add_argument(
-        "--outfile", "-o", required=True, type=str, help="Path to output file"
     )
 
 
@@ -500,6 +505,34 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
     return None
 
 
+def execute_resubmit(args: argparse.ArgumentParser) -> None:
+    """Execute resubmit given arguments
+
+    Parameters
+    ----------
+    args : argparse.ArgumentParser
+        Submit arguments
+
+    Returns
+    -------
+    None
+
+    """
+    selection = _configuration_list(args.infile)
+
+    # setup new vasp runs
+    pyjobs.casm_jobs.resubmit_vasp_runs_for_given_configs(selection, args.calctype)
+
+    # generate submit script
+    submit_str = pyjobs.casm_jobs.submit_script_str(
+        selection, args.queue, args.calctype
+    )
+    with open(args.outfile, "w") as f:
+        f.write(submit_str)
+
+    return None
+
+
 def execute_magnetism(args: argparse.ArgumentParser) -> None:
     """Execute modify magmoms given arguments
 
@@ -562,35 +595,6 @@ def execute_magnetism(args: argparse.ArgumentParser) -> None:
                 mcif.write_file(file_name)
                 for mcif, file_name in zip(mcif_writers, file_names)
             ]
-
-    return None
-
-
-def execute_configs(args: argparse.ArgumentParser) -> None:
-    """Exectue setoff given arguments
-
-    Parameters
-    ----------
-    args : argparse.ArgumentParser
-        setoff arguments
-
-    Returns
-    -------
-    None
-
-    """
-
-    # read config info
-    with open(args.infile, "r") as f:
-        configurations_info = json.load(f)
-
-    # get casm commands
-    config_list = pyjobs.casm_jobs.get_casm_config_list_from_config_info(
-        configurations_info
-    )
-
-    with open(args.outfile, "w") as f:
-        json.dump(config_list, f, indent=2)
 
     return None
 
@@ -698,19 +702,19 @@ def main():
     )
     add_submit_arguments(submit)
 
+    # resubmit script
+    resubmit = subparser.add_parser(
+        "resubmit",
+        help="Resubmits incomplete vasp calculations from a given list of casm configurations and writes out submit.sh script",
+    )
+    add_resubmit_arguments(resubmit)
+
     # modify incars
     magnetism = subparser.add_parser(
         "magnetism",
         help="Magnetism related functionality such as modify/visualize in a casm project",
     )
     add_magnetism_arguments(magnetism)
-
-    # setoff given list of configurations
-    configs = subparser.add_parser(
-        "configs",
-        help="Get casm style selection file from provided configuration information",
-    )
-    add_configs_arguments(configs)
 
     # remove completed calculations
     remove_completed_calculations = subparser.add_parser(
@@ -737,11 +741,11 @@ def main():
     if args.command == "submit":
         execute_submit(args)
 
+    if args.command == "resubmit":
+        execute_resubmit(args)
+
     if args.command == "magnetism":
         execute_magnetism(args)
-
-    if args.command == "configs":
-        execute_configs(args)
 
     if args.command == "remove":
         execute_remove(args)
