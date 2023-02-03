@@ -207,6 +207,12 @@ def add_submit_arguments(subparser: argparse.ArgumentParser) -> None:
         default=None,
         help="path to relaxandstatic.sh file (default=training_data/settings/calctype.default/relaxandstatic.sh)",
     )
+    subparser.add_argument(
+        "--re-run",
+        nargs="?",
+        default="False",
+        help="If true, sets up continuing vasp run by copying POSCAR from CONTCAR of max run.",
+    )
 
 
 def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
@@ -265,27 +271,6 @@ def add_magnetism_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     visualize.add_argument(
         "--outfile", "-o", type=str, default=None, help="Path to outcar mcif file"
-    )
-
-
-def add_configs_arguments(subparser: argparse.ArgumentParser) -> None:
-    """Add configs arguments to the given subparser
-
-    Parameters
-    ----------
-    subparser : argparse.ArgumentParser
-        subparser
-
-    Returns
-    -------
-    None
-
-    """
-    subparser.add_argument(
-        "--infile", "-i", required=True, type=str, help="Path to input file"
-    )
-    subparser.add_argument(
-        "--outfile", "-o", required=True, type=str, help="Path to output file"
     )
 
 
@@ -370,6 +355,7 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
     # resubmit unfinished vasp runs
+    # TODO: Combine this with relax
     relax_resubmit = hop.add_parser(
         "relax_resubmit", help="Resubmit init and final runs if not done"
     )
@@ -407,6 +393,7 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
     # Analyze & resubmit neb runs
+    # TODO: Combine this with NEB
     neb_resubmit = hop.add_parser(
         "neb_resubmit",
         help="Analyze and resubmit NEB images and VASP files for hop environments",
@@ -470,6 +457,11 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
 
     """
     selection = _configuration_list(args.infile)
+
+    if _sanitize_bool_args(args.re_run):
+        pyjobs.casm_jobs.setup_continuing_vasp_runs_for_given_configs(
+            selection, args.calctype
+        )
 
     # copy relaxandstatic.sh to given configurations
     copy_commands = pyjobs.casm_jobs.copy_relaxandstatic_cmds(
@@ -566,37 +558,8 @@ def execute_magnetism(args: argparse.ArgumentParser) -> None:
     return None
 
 
-def execute_configs(args: argparse.ArgumentParser) -> None:
-    """Exectue setoff given arguments
-
-    Parameters
-    ----------
-    args : argparse.ArgumentParser
-        setoff arguments
-
-    Returns
-    -------
-    None
-
-    """
-
-    # read config info
-    with open(args.infile, "r") as f:
-        configurations_info = json.load(f)
-
-    # get casm commands
-    config_list = pyjobs.casm_jobs.get_casm_config_list_from_config_info(
-        configurations_info
-    )
-
-    with open(args.outfile, "w") as f:
-        json.dump(config_list, f, indent=2)
-
-    return None
-
-
 def execute_remove(args: argparse.ArgumentParser) -> None:
-    """Exectue remove command given the arguments
+    """Execute remove command given the arguments
 
     Parameters
     ----------
@@ -621,7 +584,7 @@ def execute_remove(args: argparse.ArgumentParser) -> None:
 
 
 def execute_relax_report(args: argparse.ArgumentParser) -> None:
-    """Exectue relax_report command given the arguments
+    """Execute relax_report command given the arguments
 
     Parameters
     ----------
@@ -698,19 +661,12 @@ def main():
     )
     add_submit_arguments(submit)
 
-    # modify incars
+    # magnetism stuff
     magnetism = subparser.add_parser(
         "magnetism",
         help="Magnetism related functionality such as modify/visualize in a casm project",
     )
     add_magnetism_arguments(magnetism)
-
-    # setoff given list of configurations
-    configs = subparser.add_parser(
-        "configs",
-        help="Get casm style selection file from provided configuration information",
-    )
-    add_configs_arguments(configs)
 
     # remove completed calculations
     remove_completed_calculations = subparser.add_parser(
@@ -739,9 +695,6 @@ def main():
 
     if args.command == "magnetism":
         execute_magnetism(args)
-
-    if args.command == "configs":
-        execute_configs(args)
 
     if args.command == "remove":
         execute_remove(args)

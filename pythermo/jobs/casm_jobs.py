@@ -684,6 +684,161 @@ def visualize_magmoms_from_outcar(
     return CifWriter(contcar_structure, write_magmoms=True)
 
 
+def get_config_list_of_completed_vasp_runs(
+    selected_configurations: list[dict], calctype: str = "default"
+) -> list[dict]:
+    """Given a list of configs, this function returns
+    a list of cofigurations with completed vasp runs
+    by reading the status.json in each config/calctype dir
+
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        List of configurations in ccasm query json format
+    calctype : str, optional
+        ccasm ``calctype`` of your DFT calcuations
+
+    Returns
+    -------
+    list[dict]
+        List of configurations in ccasm query json format
+
+    """
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+
+    completed_configurations = [
+        config
+        for config, calctype_dir in zip(selected_configurations, calctype_dirs)
+        if is_vasp_relaxandstatic_run_complete(calctype_dir)
+    ]
+
+    return completed_configurations
+
+
+def setup_continuing_vasp_relaxandstatic_run(vasp_run_dir: str) -> None:
+    """Helper function to deal with setting up continuing vasp
+    run. If the calculation is complete, nothing is done and
+    the function returns True. Else, all the old vasp files will
+    be move into a new run_ folder and VASP input files will be
+    copied over for a new calculation. CONTCAR from the max run.folder
+    will be the new POSCAR.
+
+    Parameters
+    ----------
+    vasp_run_dir : str
+        vasp run dir
+
+    Returns
+    -------
+    bool
+        Whether the calculation is finished or not
+
+    """
+
+    # get relaxandstatic_name
+    relaxandstatic_name = [
+        file for file in os.listdir(vasp_run_dir) if "relaxandstatic" in file
+    ][0]
+
+    # figure out the max run dir; so that you can copy contcar from there
+    max_run_dir = ""
+    run_dirs = []
+    for dir in os.listdir(vasp_run_dir):
+        if "run." in dir:
+            if "final" in dir:
+                max_run_dir = "run.final"
+            else:
+                run_dirs.append(int(str(dir).replace("run.", "")))
+
+    if max_run_dir != "run.final":
+        max_run_dir = "run." + str(max(run_dirs))
+
+    # make the new_calc dir and copy the current calculation there
+    calc_dirs = [
+        int(dir.replace("run_", ""))
+        for dir in os.listdir(vasp_run_dir)
+        if "run_" in dir
+    ]
+    if len(calc_dirs) == 0:
+        new_calc_dir = os.path.join(vasp_run_dir, "run_0")
+    else:
+        new_calc_dir = os.path.join(vasp_run_dir, "run_" + str(max(calc_dirs) + 1))
+
+    # make the new_calc_dir
+    os.mkdir(new_calc_dir)
+
+    # move all the files to the new_calc_dir
+    # figure out files to move
+    move_files = [dir for dir in os.listdir(vasp_run_dir) if "run_" not in dir]
+    for f in move_files:
+        move_args = "mv " + os.path.join(vasp_run_dir, f) + " " + new_calc_dir + "/"
+        move = subprocess.Popen(move_args, shell=True, stdout=subprocess.PIPE)
+        move.communicate()
+
+    # copy incar kpoints potcar contcar relaxandstatic.sh
+    copy_incar_args = shlex.split("cp " + new_calc_dir + "/INCAR " + vasp_run_dir + "/")
+    copy_kpoints_args = shlex.split(
+        "cp " + new_calc_dir + "/KPOINTS " + vasp_run_dir + "/"
+    )
+    copy_potcar_args = shlex.split(
+        "cp " + new_calc_dir + "/POTCAR " + vasp_run_dir + "/"
+    )
+    copy_contcar_args = shlex.split(
+        "cp "
+        + new_calc_dir
+        + "/"
+        + max_run_dir
+        + "/CONTCAR "
+        + vasp_run_dir
+        + "/POSCAR"
+    )
+    copy_relaxandstatic_args = shlex.split(
+        "cp " + new_calc_dir + "/" + relaxandstatic_name + " " + vasp_run_dir + "/"
+    )
+
+    copy_incar = subprocess.Popen(copy_incar_args, stdout=subprocess.PIPE)
+    copy_incar.communicate()
+    copy_kpoints = subprocess.Popen(copy_kpoints_args, stdout=subprocess.PIPE)
+    copy_kpoints.communicate()
+    copy_potcar = subprocess.Popen(copy_potcar_args, stdout=subprocess.PIPE)
+    copy_potcar.communicate()
+    copy_contcar = subprocess.Popen(copy_contcar_args, stdout=subprocess.PIPE)
+    copy_contcar.communicate()
+    copy_relaxandstatic = subprocess.Popen(
+        copy_relaxandstatic_args, stdout=subprocess.PIPE
+    )
+    copy_relaxandstatic.communicate()
+
+    return None
+
+
+def setup_continuing_vasp_runs_for_given_configs(
+    selected_configurations: list[dict], calctype: str = "default"
+) -> None:
+    """Given a list of configs, this function sets up
+    a continuing vasp run in each config/calctype_dir
+
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        List of configurations in ccasm query json format
+    calctype : str, optional
+        ccasm ``calctype`` of your DFT calcuations
+
+    Returns
+    -------
+    None
+
+    """
+
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+    [
+        setup_continuing_vasp_relaxandstatic_run(calctype_dir)
+        for calctype_dir in calctype_dirs
+    ]
+    return None
+
+
 def remove_completed_calculations(
     selected_configurations: list[dict], calctype: str = "default"
 ) -> str:
@@ -713,7 +868,7 @@ def remove_completed_calculations(
         calculations
 
     """
-    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+    # calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
 
     # read status files
     # if status is complete, add the corresponding config dir to be removed
@@ -723,73 +878,128 @@ def remove_completed_calculations(
         "#WARNING: USE IT ON A REMOTE CLUSTER AFTER THE CALCULATIONS ARE SYNCED\n"
     )
 
-    for calctype_dir in calctype_dirs:
-        with open(os.path.join(calctype_dir, "status.json"), "r") as f:
-            status = json.load(f)
+    completed_configs = get_config_list_of_completed_vasp_runs(
+        selected_configurations, calctype
+    )
+    completed_calctype_dirs = _get_calctype_dirs(completed_configs, calctype)
 
-        if status["status"] == "complete":
-            remove_str += "rm -rf " + str(calctype_dir) + "/\n"
+    remove_str += "".join(
+        (
+            "rm -rf " + str(calctype_dir) + "/\n"
+            for calctype_dir in completed_calctype_dirs
+        )
+    )
 
-        # if status is started but calculation ended
-        # due to time limit
-        if status[
-            "status"
-        ] == "started" and is_calculation_terminated_due_to_time_limit(calctype_dir):
-            # remove this config as well
-            remove_str += "rm -rf " + str(calctype_dir) + "/\n"
+    terminated_configs = get_config_list_of_vasp_runs_terminated_due_to_time_limit(
+        selected_configurations, calctype
+    )
+    terminated_calctype_dirs = _get_calctype_dirs(terminated_configs, calctype)
+    remove_str += "".join(
+        (
+            "rm -rf " + str(calctype_dir) + "/\n"
+            for calctype_dir in terminated_calctype_dirs
+        )
+    )
 
-            # update status with failed
-            with open(os.path.join(calctype_dir, "status.json"), "w") as f:
-                json.dump(dict(status="failed"), f)
+    # update status.json to failed for terminated configs
+    update_status_json_for_given_configs(terminated_configs, calctype, "failed")
 
     return remove_str
 
 
-def is_calculation_terminated_due_to_time_limit(calctype_dir: str) -> bool:
-    """Given a calculation directory, this
-    function determines whether the vasp
-    calculation is terminated due to time
-    limit by checking if "process killed (SIGTERM)"
-    string exists in stdout in any of the run.*
-    dirs
+def update_status_json_for_given_configs(
+    selected_configurations: list[dict], calctype: str, status: str
+) -> None:
+    """Given a list of selected configs and calctype,
+    update status.json in the config/calctype by the
+    provided status
 
     Parameters
     ----------
-    calctype_dir : str
-        calculation directory
+    selected_configurations : list[dict]
+        List of configurations in ccasm query json format
+    calctype : str, optional
+        ccasm ``calctype`` of your DFT calcuations
+    status : str
+        status to be updated in status.json in config/calctype
 
     Returns
     -------
-    bool
-        True if calculation is terminated
-        due to time limit, else False
+    None
+
     """
 
-    # in case of pbs, read "*.e" file to see if time limit exceeded
-    pbs_error_file = [file for file in os.listdir(calctype_dir) if ".e" in file]
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
 
-    # in case of slurm, read "*.out" file to see if time limit exceeded
-    slurm_out_file = [file for file in os.listdir(calctype_dir) if ".out" in file]
+    for calctype_dir in calctype_dirs:
+        # update status with failed
+        with open(os.path.join(calctype_dir, "status.json"), "w") as f:
+            json.dump(dict(status=status), f)
 
-    if len(slurm_out_file) != 0:
-        with open(os.path.join(calctype_dir, slurm_out_file[0]), "r") as f:
-            if "DUE TO TIME LIMIT" in f.read():
-                return True
+    return None
 
-    if len(pbs_error_file) != 0:
-        with open(os.path.join(calctype_dir, pbs_error_file[0]), "r") as f:
-            if "walltime" in f.read() and "exceeded limit" in f.read():
-                return True
 
-    # if the above pbs and slurm out files do not catch the error,
-    # try this by reading stdouts
-    run_dirs = [dir for dir in os.listdir(calctype_dir) if "run" in dir]
-    for run_dir in run_dirs:
-        with open(os.path.join(calctype_dir, run_dir, "stdout"), "r") as f:
-            if "process killed (SIGTERM)" in f.read():
-                return True
+def get_config_list_of_vasp_runs_terminated_due_to_time_limit(
+    selected_configurations: list[dict], calctype: str
+) -> list[dict]:
+    """Given a list of configurations, this function returns
+    a list of configurations which were killed due to time limit
+    by checking in the corresponding calctype dir if
+    "process killed (SIGTERM)" string exists in stdout in any
+    of the run.* dirs (or) by reading the slurm or pbs out files
 
-    return False
+    Parameters
+    ----------
+    selected_configurations : list[dict]
+        List of configurations in ccasm query json format
+    calctype : str, optional
+        ccasm ``calctype`` of your DFT calcuations
+
+    Returns
+    -------
+    list[dict]
+        List of calculations which are terminated due to
+        time limit
+    """
+
+    calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
+    terminated_configs = []
+
+    for config, calctype_dir in zip(selected_configurations, calctype_dirs):
+        with open(os.path.join(calctype_dir, "status.json"), "r") as f:
+            status = json.load(f)
+
+        if status["status"] == "started":
+            # in case of pbs, read "*.e" file to see if time limit exceeded
+            pbs_error_file = [file for file in os.listdir(calctype_dir) if ".e" in file]
+
+            # in case of slurm, read "*.out" file to see if time limit exceeded
+            slurm_out_file = [
+                file for file in os.listdir(calctype_dir) if ".out" in file
+            ]
+
+            if len(slurm_out_file) != 0:
+                with open(os.path.join(calctype_dir, slurm_out_file[0]), "r") as f:
+                    if "DUE TO TIME LIMIT" in f.read():
+                        terminated_configs.append(config)
+                        continue
+
+            if len(pbs_error_file) != 0:
+                with open(os.path.join(calctype_dir, pbs_error_file[0]), "r") as f:
+                    if "walltime" in f.read() and "exceeded limit" in f.read():
+                        terminated_configs.append(config)
+                        continue
+
+            # if the above pbs and slurm out files do not catch the error,
+            # try this by reading stdouts
+            run_dirs = [dir for dir in os.listdir(calctype_dir) if "run." in dir]
+            for run_dir in run_dirs:
+                with open(os.path.join(calctype_dir, run_dir, "stdout"), "r") as f:
+                    if "process killed (SIGTERM)" in f.read():
+                        terminated_configs.append(config)
+                        continue
+
+    return terminated_configs
 
 
 def write_initial_status_files(
@@ -969,6 +1179,7 @@ def toss_file_str_for_a_neb_run(calc_dir: str, relaxandstatic_name: str) -> str:
     return toss_str
 
 
+# TODO: allow for submit.sh & toss_files.txt file names as args
 def setup_vasp_relax_runs_for_hop_envs(
     hop_env_dirs: list[str], vasp_input_file_dir: str, dry_run: False
 ) -> None:
@@ -1146,111 +1357,26 @@ def setup_vasp_relax_runs_for_hop_envs(
     return None
 
 
-def _setup_continuing_vasp_run_if_incomplete(vasp_run_dir: str, dry_run: True) -> bool:
-    """Helper function to deal with setting up continuing vasp
-    run. If the calculation is complete, nothing is done and
-    the function returns True. Else, all the old vasp files will
-    be move into a new run_ folder and VASP input files will be
-    copied over for a new calculation. CONTCAR from the max run.folder
-    will be the new POSCAR.
+def is_vasp_relaxandstatic_run_complete(vasp_run_dir: str) -> bool:
+    """Tells whether a vasp run is complete or
+    not by reading the status.json
 
     Parameters
     ----------
     vasp_run_dir : str
-        vasp run dir
-    dry_run : bool
-        If true, just returns the status
-        of the calculation
 
     Returns
     -------
     bool
-        Whether the calculation is finished or not
+        Is vasp run done
 
     """
+
     with open(os.path.join(vasp_run_dir, "status.json"), "r") as f:
         status = json.load(f)
 
-    if dry_run:
-        print("calc status for ", vasp_run_dir, " is ", status["status"])
-        return None
-
     if status["status"] == "complete":
         return True
-
-    # get relaxandstatic_name
-    relaxandstatic_name = [
-        file for file in os.listdir(vasp_run_dir) if "relaxandstatic" in file
-    ][0]
-
-    # figure out the max run dir; so that you can copy contcar from there
-    max_run_dir = ""
-    run_dirs = []
-    for dir in os.listdir(vasp_run_dir):
-        if "run." in dir:
-            if "final" in dir:
-                max_run_dir = "run.final"
-            else:
-                run_dirs.append(int(str(dir).replace("run.", "")))
-
-    if max_run_dir != "run.final":
-        max_run_dir = "run." + str(max(run_dirs))
-
-    # make the new_calc dir and copy the current calculation there
-    calc_dirs = [
-        int(dir.replace("run_", ""))
-        for dir in os.listdir(vasp_run_dir)
-        if "run_" in dir
-    ]
-    if len(calc_dirs) == 0:
-        new_calc_dir = os.path.join(vasp_run_dir, "run_0")
-    else:
-        new_calc_dir = os.path.join(vasp_run_dir, "run_" + str(max(calc_dirs) + 1))
-
-    # make the new_calc_dir
-    os.mkdir(new_calc_dir)
-
-    # move all the files to the new_calc_dir
-    # figure out files to move
-    move_files = [dir for dir in os.listdir(vasp_run_dir) if "run_" not in dir]
-    for f in move_files:
-        move_args = "mv " + os.path.join(vasp_run_dir, f) + " " + new_calc_dir + "/"
-        move = subprocess.Popen(move_args, shell=True, stdout=subprocess.PIPE)
-        move.communicate()
-
-    # copy incar kpoints potcar contcar relaxandstatic.sh
-    copy_incar_args = shlex.split("cp " + new_calc_dir + "/INCAR " + vasp_run_dir + "/")
-    copy_kpoints_args = shlex.split(
-        "cp " + new_calc_dir + "/KPOINTS " + vasp_run_dir + "/"
-    )
-    copy_potcar_args = shlex.split(
-        "cp " + new_calc_dir + "/POTCAR " + vasp_run_dir + "/"
-    )
-    copy_contcar_args = shlex.split(
-        "cp "
-        + new_calc_dir
-        + "/"
-        + max_run_dir
-        + "/CONTCAR "
-        + vasp_run_dir
-        + "/POSCAR"
-    )
-    copy_relaxandstatic_args = shlex.split(
-        "cp " + new_calc_dir + "/" + relaxandstatic_name + " " + vasp_run_dir + "/"
-    )
-
-    copy_incar = subprocess.Popen(copy_incar_args, stdout=subprocess.PIPE)
-    copy_incar.communicate()
-    copy_kpoints = subprocess.Popen(copy_kpoints_args, stdout=subprocess.PIPE)
-    copy_kpoints.communicate()
-    copy_potcar = subprocess.Popen(copy_potcar_args, stdout=subprocess.PIPE)
-    copy_potcar.communicate()
-    copy_contcar = subprocess.Popen(copy_contcar_args, stdout=subprocess.PIPE)
-    copy_contcar.communicate()
-    copy_relaxandstatic = subprocess.Popen(
-        copy_relaxandstatic_args, stdout=subprocess.PIPE
-    )
-    copy_relaxandstatic.communicate()
 
     return False
 
@@ -1289,20 +1415,28 @@ def resubmit_incomplete_vasp_runs_for_hop_envs(
         relaxandstatic_name = [
             file for file in os.listdir(hop_dir) if "relaxandstatic" in file
         ][0]
-        is_init_done = _setup_continuing_vasp_run_if_incomplete(
-            os.path.join(hop_dir, "init"), dry_run
+
+        is_init_done = is_vasp_relaxandstatic_run_complete(
+            os.path.join(hop_dir, "init")
         )
-        is_final_done = _setup_continuing_vasp_run_if_incomplete(
-            os.path.join(hop_dir, "final"), dry_run
+        is_final_done = is_vasp_relaxandstatic_run_complete(
+            os.path.join(hop_dir, "final")
         )
 
+        if dry_run:
+            print(hop_dir, " init status is: ", is_init_done)
+            print(hop_dir, " final status is: ", is_final_done)
+            continue
+
         if not is_init_done:
+            setup_continuing_vasp_relaxandstatic_run(os.path.join(hop_dir, "init"))
             toss_str += toss_file_str_for_a_vasp_run(
                 os.path.join(hop_dir, "init"), relaxandstatic_name
             )
             submit_str += " " + os.path.join(hop_dir, "init") + "\n"
 
         if not is_final_done:
+            setup_continuing_vasp_relaxandstatic_run(os.path.join(hop_dir, "final"))
             toss_str += toss_file_str_for_a_vasp_run(
                 os.path.join(hop_dir, "init"), relaxandstatic_name
             )
@@ -1536,7 +1670,9 @@ def analyze_and_resubmit_nebs_for_hops(
         else:
             # Figure out max run_ dir
             run_dirs = [
-                dir.replace("run_", "") for dir in os.listdir(hop_dir) if "run_" in dir
+                int(dir.replace("run_", ""))
+                for dir in os.listdir(hop_dir)
+                if "run_" in dir
             ]
             if len(run_dirs) == 0:
                 max_run_dir = -1
@@ -1618,27 +1754,60 @@ def get_transf_mat_to_scel(prim_lattice: np.ndarray, scel_lattice: np.ndarray):
     return np.rint(np.linalg.inv(prim_lattice) @ scel_lattice)
 
 
-def get_transf_mat_from_propeties_json_paths(
-    prim_lattice: np.ndarray, properties_paths: list[str]
-) -> list[np.ndarray]:
-    """TODO: Docstring for
+def get_all_properties_json_from_vacancy_calc_dir(
+    vacancy_calc_dir: str, is_hop_env_dir=False
+) -> list[dict]:
+    """From a given vacancy calculation dir, assuming
+    vacancy calculations are in config_* in the calculation
+    dir, this function goes into run.final of all the
+    config_* and gets properties json in ccasm format
+    which can be used to import into ccasm project
 
     Parameters
     ----------
-    arg1 : TODO
+    vacancy_calc_dir : str
+        Path to directory where config_* relaxations
+        are present
 
     Returns
     -------
-    TODO
+    list[dict]
+        list of all properties jsons
 
     """
 
-    transf_mats = []
-    for properties_path in properties_paths:
-        with open(properties_path, "r") as f:
-            properties_json = json.load(f)
-        transf_mats.append(
-            get_transf_mat_to_scel(prim_lattice, properties_json["lattice_vectors"])
-        )
+    # assuming all the vacancy configs calcuations are in config_
+    properties_jsons = []
 
-    return transf_mats
+    if is_hop_env_dir:
+        for dirname, dirs, _ in os.walk(vacancy_calc_dir):
+            if "/init" in dirname or "/final" in dirname:
+                for dir in dirs:
+                    if "run.final" == dir:
+                        properties_json = properties_json_from_relaxation_dir(
+                            os.path.join(dirname, dir)
+                        )
+                        properties_json["path"] = os.path.join(dirname, dir)
+                        properties_jsons.append(properties_json)
+
+        return properties_jsons
+
+    vacancy_config_dirs = [
+        os.path.join(vacancy_calc_dir, dir)
+        for dir in os.listdir(vacancy_calc_dir)
+        if os.path.isdir(os.path.join(vacancy_calc_dir, dir)) and "config_" in dir
+    ]
+
+    for vacancy_config_dir in vacancy_config_dirs:
+        run_final_dir = [
+            os.path.join(vacancy_calc_dir, vacancy_config_dir, dir)
+            for dir in os.listdir(os.path.join(vacancy_calc_dir, vacancy_config_dir))
+            if "run.final" in dir
+            and os.path.isdir(os.path.join(vacancy_calc_dir, vacancy_config_dir, dir))
+        ][0]
+
+        properties_json = properties_json_from_relaxation_dir(run_final_dir)
+        properties_json["path"] = run_final_dir
+        properties_jsons.append(properties_json)
+
+    return properties_jsons
