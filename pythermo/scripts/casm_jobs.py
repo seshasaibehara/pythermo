@@ -618,7 +618,7 @@ def execute_relax_report(args: argparse.ArgumentParser) -> None:
     return None
 
 
-def execute_hop(args: argparse.ArgumentParser) -> None:
+def execute_hop(args: argparse.ArgumentParser) -> None:  # noqa: C901
     """Execute modify magmoms given arguments
 
     Parameters
