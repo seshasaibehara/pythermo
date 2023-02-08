@@ -344,33 +344,34 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
         "--input",
         "-i",
         type=str,
-        required=True,
-        help="Path to vasp input file directory",
+        default=None,
+        help="Path to vasp input file directory which is required when dry_run is False",
+    )
+    relax.add_argument(
+        "--toss",
+        "-t",
+        type=str,
+        default=None,
+        help="Path to toss file to be written (default = toss_files.txt)",
+    )
+    relax.add_argument(
+        "--submit",
+        "-s",
+        type=str,
+        default=None,
+        help="Path to submit file to be written (default = submit.sh)",
     )
     relax.add_argument(
         "--dry-run",
         type=str,
         default="False",
-        help="If dry run, only toss and submit files are written",
+        help="If true, writes the status of vasp runs in init and final dirs of hop envs",
     )
-
-    # resubmit unfinished vasp runs
-    # TODO: Combine this with relax
-    relax_resubmit = hop.add_parser(
-        "relax_resubmit", help="Resubmit init and final runs if not done"
-    )
-    relax_resubmit.add_argument(
-        "--dirs",
-        "-d",
-        nargs="+",
-        required=True,
-        help="Path to hop environment directories containing init and final vasp runs",
-    )
-    relax_resubmit.add_argument(
-        "--dry-run",
-        type=str,
+    relax.add_argument(
+        "--re-run",
+        nargs="?",
         default="False",
-        help="If dry run, only toss and submit files are written",
+        help="If true, sets up continuing vasp run in incomplete init and final dirs",
     )
 
     # submit neb runs
@@ -388,28 +389,41 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
         "--input",
         "-i",
         type=str,
-        required=True,
+        default=None,
         help="Path to VASP NEB input file directory",
     )
-
-    # Analyze & resubmit neb runs
-    # TODO: Combine this with NEB
-    neb_resubmit = hop.add_parser(
-        "neb_resubmit",
-        help="Analyze and resubmit NEB images and VASP files for hop environments",
-    )
-    neb_resubmit.add_argument(
-        "--dirs",
-        "-d",
-        nargs="+",
-        required=True,
-        help="Path to hop environment directories containing a finished NEB run (can be complete or incomplete)",
-    )
-    neb_resubmit.add_argument(
+    neb.add_argument(
         "--dry-run",
         type=str,
         default="False",
         help="If dry run, only status of each NEB hop is printed",
+    )
+    neb.add_argument(
+        "--re-run",
+        nargs="?",
+        default="False",
+        help="If true, sets up continuing NEB runs for hop env dirs",
+    )
+    neb.add_argument(
+        "--analyze",
+        "-a",
+        nargs="?",
+        default="False",
+        help="If true, analyzes completed NEB runs",
+    )
+    neb.add_argument(
+        "--toss",
+        "-t",
+        type=str,
+        default=None,
+        help="Path to toss file to be written (default = toss_files.txt)",
+    )
+    neb.add_argument(
+        "--submit",
+        "-s",
+        type=str,
+        default=None,
+        help="Path to submit file to be written (default = submit.sh)",
     )
 
 
@@ -620,26 +634,59 @@ def execute_hop(args: argparse.ArgumentParser) -> None:
     if args.hop == "relax":
         hop_env_dirs = args.dirs
         vasp_input_dir = args.input
-        pyjobs.casm_jobs.setup_vasp_relax_runs_for_hop_envs(
-            hop_env_dirs, vasp_input_dir, _sanitize_bool_args(args.dry_run)
-        )
 
-    if args.hop == "relax_resubmit":
-        hop_env_dirs = args.dirs
-        pyjobs.casm_jobs.resubmit_incomplete_vasp_runs_for_hop_envs(
-            hop_env_dirs, _sanitize_bool_args(args.dry_run)
-        )
+        if args.toss is None:
+            args.toss = "toss_files.txt"
+        if args.submit is None:
+            args.submit = "submit.sh"
+
+        if _sanitize_bool_args(args.dry_run):
+            pyjobs.casm_jobs.print_vasp_relax_run_status_for_hop_envs(hop_env_dirs)
+
+        else:
+            if vasp_input_dir is None:
+                raise RuntimeError("Vasp input dir argument is required")
+
+            if not _sanitize_bool_args(args.re_run):
+                pyjobs.casm_jobs.setup_vasp_relax_runs_for_hop_envs(
+                    hop_env_dirs, vasp_input_dir, args.submit, args.toss
+                )
+
+            else:
+                pyjobs.casm_jobs.setup_vasp_reruns_for_hop_envs(
+                    hop_env_dirs, vasp_input_dir, args.submit, args.toss
+                )
 
     if args.hop == "neb":
         hop_env_dirs = args.dirs
         vasp_input_dir = args.input
-        pyjobs.casm_jobs.setup_nebs_for_hops(hop_env_dirs, vasp_input_dir)
 
-    if args.hop == "neb_resubmit":
-        hop_env_dirs = args.dirs
-        pyjobs.casm_jobs.analyze_and_resubmit_nebs_for_hops(
-            hop_env_dirs, _sanitize_bool_args(args.dry_run)
-        )
+        if args.toss is None:
+            args.toss = "toss_files.txt"
+        if args.submit is None:
+            args.submit = "submit.sh"
+
+        if _sanitize_bool_args(args.dry_run):
+            pyjobs.casm_jobs.print_neb_run_status_for_hop_envs(hop_env_dirs)
+
+        elif _sanitize_bool_args(args.analyze):
+            pyjobs.casm_jobs.analyze_nebs_for_hop_envs(hop_env_dirs)
+
+        else:
+            if vasp_input_dir is None:
+                raise RuntimeError("Vasp input dir argument is required")
+
+            if not _sanitize_bool_args(args.re_run):
+                pyjobs.casm_jobs.setup_nebs_for_hop_envs(
+                    hop_env_dirs, vasp_input_dir, args.submit, args.toss
+                )
+
+            else:
+                pyjobs.casm_jobs.setup_neb_reruns_for_hop_envs(
+                    hop_env_dirs,
+                    args.submit,
+                    args.toss,
+                )
 
     return None
 
