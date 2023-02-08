@@ -1179,9 +1179,11 @@ def toss_file_str_for_a_neb_run(calc_dir: str, relaxandstatic_name: str) -> str:
     return toss_str
 
 
-# TODO: allow for submit.sh & toss_files.txt file names as args
 def setup_vasp_relax_runs_for_hop_envs(
-    hop_env_dirs: list[str], vasp_input_file_dir: str, dry_run: False
+    hop_env_dirs: list[str],
+    vasp_input_file_dir: str,
+    submit_file_path="submit.sh",
+    toss_file_path="toss_files.txt",
 ) -> None:
     """Sets up vasp relax runs for given hop env dirs
     In the hop env dir, you should have POSCAR_init.vasp,
@@ -1205,8 +1207,10 @@ def setup_vasp_relax_runs_for_hop_envs(
     vasp_input_file_dir : str
         path to dir containing INCAR, KPOINTS,
         POTCAR, and relaxandstatic file
-    dry_run : False
-        only writes toss_file and submit script
+    submit_file_path : str
+        path to submit file to be written
+    toss_file_path : str
+        path to toss file to be written
 
     Returns
     -------
@@ -1221,8 +1225,6 @@ def setup_vasp_relax_runs_for_hop_envs(
     ][0]
     relaxandstatic = os.path.join(vasp_input_file_dir, relaxandstatic_name)
 
-    print("Dry run: ", dry_run)
-
     # write toss and submit script
     toss_str = ""
     submit_str = "#!/bin/bash\n"
@@ -1231,8 +1233,7 @@ def setup_vasp_relax_runs_for_hop_envs(
     for hop_dir in hop_env_dirs:
         # make init dir and copy POSCAR_init to init/POSCAR
         init_dir = os.path.join(hop_dir, "init")
-        if not dry_run:
-            os.mkdir(init_dir)
+        os.mkdir(init_dir)
         copy_poscar_init_args = shlex.split(
             "cp "
             + os.path.join(hop_dir, "POSCAR_init.vasp")
@@ -1242,13 +1243,11 @@ def setup_vasp_relax_runs_for_hop_envs(
         copy_poscar_init = subprocess.Popen(
             copy_poscar_init_args, stdout=subprocess.PIPE
         )
-        if not dry_run:
-            copy_poscar_init.communicate()
+        copy_poscar_init.communicate()
 
         # make final dir and copy POSCAR_final to final/POSCAR
         final_dir = os.path.join(hop_dir, "final")
-        if not dry_run:
-            os.mkdir(final_dir)
+        os.mkdir(final_dir)
         copy_poscar_final_args = shlex.split(
             "cp "
             + os.path.join(hop_dir, "POSCAR_final.vasp")
@@ -1258,8 +1257,7 @@ def setup_vasp_relax_runs_for_hop_envs(
         copy_poscar_final = subprocess.Popen(
             copy_poscar_final_args, stdout=subprocess.PIPE
         )
-        if not dry_run:
-            copy_poscar_final.communicate()
+        copy_poscar_final.communicate()
 
         # copy incar to init and final
         copy_incar_to_init_args = shlex.split("cp " + incar + " " + init_dir)
@@ -1270,9 +1268,8 @@ def setup_vasp_relax_runs_for_hop_envs(
         copy_incar_to_final = subprocess.Popen(
             copy_incar_to_final_args, stdout=subprocess.PIPE
         )
-        if not dry_run:
-            copy_incar_to_init.communicate()
-            copy_incar_to_final.communicate()
+        copy_incar_to_init.communicate()
+        copy_incar_to_final.communicate()
 
         # copy kpoints to init and final
         copy_kpoints_to_init_args = shlex.split("cp " + kpoints + " " + init_dir)
@@ -1283,9 +1280,8 @@ def setup_vasp_relax_runs_for_hop_envs(
         copy_kpoints_to_final = subprocess.Popen(
             copy_kpoints_to_final_args, stdout=subprocess.PIPE
         )
-        if not dry_run:
-            copy_kpoints_to_init.communicate()
-            copy_kpoints_to_final.communicate()
+        copy_kpoints_to_init.communicate()
+        copy_kpoints_to_final.communicate()
 
         # copy potcar to init and final
         copy_potcar_to_init_args = shlex.split("cp " + potcar + " " + init_dir)
@@ -1296,9 +1292,8 @@ def setup_vasp_relax_runs_for_hop_envs(
         copy_potcar_to_final = subprocess.Popen(
             copy_potcar_to_final_args, stdout=subprocess.PIPE
         )
-        if not dry_run:
-            copy_potcar_to_init.communicate()
-            copy_potcar_to_final.communicate()
+        copy_potcar_to_init.communicate()
+        copy_potcar_to_final.communicate()
 
         # copy relaxandstatic to init and final
         sed_init_args = shlex.split(
@@ -1315,16 +1310,15 @@ def setup_vasp_relax_runs_for_hop_envs(
             + '/g" '
             + relaxandstatic
         )
-        if not dry_run:
-            sed_init = subprocess.Popen(sed_init_args, stdout=subprocess.PIPE)
-            sed_final = subprocess.Popen(sed_final_args, stdout=subprocess.PIPE)
-            sed_init_out, _ = sed_init.communicate()
-            with open(os.path.join(hop_dir, "init", relaxandstatic_name), "w") as f:
-                f.write(sed_init_out.decode("utf-8"))
+        sed_init = subprocess.Popen(sed_init_args, stdout=subprocess.PIPE)
+        sed_final = subprocess.Popen(sed_final_args, stdout=subprocess.PIPE)
+        sed_init_out, _ = sed_init.communicate()
+        with open(os.path.join(hop_dir, "init", relaxandstatic_name), "w") as f:
+            f.write(sed_init_out.decode("utf-8"))
 
-            sed_final_out, _ = sed_final.communicate()
-            with open(os.path.join(hop_dir, "final", relaxandstatic_name), "w") as f:
-                f.write(sed_final_out.decode("utf-8"))
+        sed_final_out, _ = sed_final.communicate()
+        with open(os.path.join(hop_dir, "final", relaxandstatic_name), "w") as f:
+            f.write(sed_final_out.decode("utf-8"))
 
         # write toss file
         toss_str += toss_file_str_for_a_vasp_run(
@@ -1348,10 +1342,11 @@ def setup_vasp_relax_runs_for_hop_envs(
     submit_str += " cd ../../\n"
     submit_str += "done\n"
 
-    with open("./submit.sh", "w") as f:
+    with open(submit_file_path, "w") as f:
         f.write(submit_str)
 
-    with open("./toss_files.txt", "w") as f:
+    with open(toss_file_path, "w") as f:
+        toss_str += submit_file_path + "\n"
         f.write(toss_str)
 
     return None
@@ -1381,10 +1376,17 @@ def is_vasp_relaxandstatic_run_complete(vasp_run_dir: str) -> bool:
     return False
 
 
-def resubmit_incomplete_vasp_runs_for_hop_envs(
-    hop_env_dirs: list[str], dry_run: True
+# TODO: maybe make vasp_input_dir optional?
+# currently only uses it for relaxandstatic_name
+# if this name is different from one in init and final
+# it creates problems
+def setup_vasp_reruns_for_hop_envs(
+    hop_env_dirs: list[str],
+    vasp_input_dir: str,
+    submit_file_path="submit.sh",
+    toss_file_path="toss_files.txt",
 ) -> None:
-    """Resubmit incomplete vasp runs in init
+    """Setup incomplete vasp runs for submission in init
     and final dirs for hop env dirs. Incompleteness
     is read from hop_env_dir/init_or_final/status.json
     If calculation is complete nothing is done. Else
@@ -1397,11 +1399,14 @@ def resubmit_incomplete_vasp_runs_for_hop_envs(
 
     Parameters
     ----------
-    hop_env_dirs : list[dir]
+    hop_env_dirs : list[str]
         all the hop env dirs
-    dry_run : bool
-        If true only prints out statuses
-        of each vasp calculation
+    vasp_input_dir : str
+        path to vasp input files
+    submit_file_path : str
+        path to submit file to be written
+    toss_file_path : str
+        path to toss file to be written
 
     Returns
     -------
@@ -1411,11 +1416,11 @@ def resubmit_incomplete_vasp_runs_for_hop_envs(
     toss_str = ""
     submit_str = "#!/bin/bash\n"
     submit_str += "configs=(\n"
-    for hop_dir in hop_env_dirs:
-        relaxandstatic_name = [
-            file for file in os.listdir(hop_dir) if "relaxandstatic" in file
-        ][0]
+    relaxandstatic_name = [
+        file for file in os.listdir(vasp_input_dir) if "relaxandstatic" in file
+    ][0]
 
+    for hop_dir in hop_env_dirs:
         is_init_done = is_vasp_relaxandstatic_run_complete(
             os.path.join(hop_dir, "init")
         )
@@ -1423,27 +1428,21 @@ def resubmit_incomplete_vasp_runs_for_hop_envs(
             os.path.join(hop_dir, "final")
         )
 
-        if dry_run:
-            print(hop_dir, " init status is: ", is_init_done)
-            print(hop_dir, " final status is: ", is_final_done)
-            continue
-
         if not is_init_done:
             setup_continuing_vasp_relaxandstatic_run(os.path.join(hop_dir, "init"))
             toss_str += toss_file_str_for_a_vasp_run(
                 os.path.join(hop_dir, "init"), relaxandstatic_name
             )
             submit_str += " " + os.path.join(hop_dir, "init") + "\n"
+            print("Setting up vasp rerun for init ", hop_dir)
 
         if not is_final_done:
             setup_continuing_vasp_relaxandstatic_run(os.path.join(hop_dir, "final"))
             toss_str += toss_file_str_for_a_vasp_run(
-                os.path.join(hop_dir, "init"), relaxandstatic_name
+                os.path.join(hop_dir, "final"), relaxandstatic_name
             )
             submit_str += " " + os.path.join(hop_dir, "final") + "\n"
-
-        print("Done with init and final of ", hop_dir)
-        print("=====================================")
+            print("Setting up vasp rerun for final", hop_dir)
 
     submit_str += ")\n"
     submit_str += 'for i in "${configs[@]}"; do\n'
@@ -1453,15 +1452,86 @@ def resubmit_incomplete_vasp_runs_for_hop_envs(
     submit_str += "done\n"
 
     if not toss_str == "":
-        with open("./toss_files.txt", "w") as f:
+        with open(toss_file_path, "w") as f:
+            toss_str += submit_file_path + "\n"
             f.write(toss_str)
-        with open("./submit.sh", "w") as f:
+        with open(submit_file_path, "w") as f:
             f.write(submit_str)
+
+    else:
+        print("Nothing to do. All the calculations are done")
 
     return None
 
 
-def setup_nebs_for_hops(hop_env_dirs: list[str], neb_input_file_dir: str) -> None:
+def print_vasp_relax_run_status_for_hop_envs(hop_env_dirs: list[str]) -> None:
+    """Print status of vasp calculation by reading
+    status.json in hop_env_dir/init and hop_env_dir/final
+
+    Parameters
+    ----------
+    hop_env_dirs : list[str]
+        list of hop env dirs where init and final dirs are present
+
+    Returns
+    -------
+    None
+
+    """
+    for hop_dir in hop_env_dirs:
+        if os.path.isfile(os.path.join(hop_dir, "init", "status.json")):
+            with open(os.path.join(hop_dir, "init", "status.json"), "r") as f:
+                status = json.load(f)["status"]
+                print("Status of init ", hop_dir, " is: ", status)
+        else:
+            print("Status of init ", hop_dir, " is: ", "unknown")
+
+        if os.path.isfile(os.path.join(hop_dir, "final", "status.json")):
+            with open(os.path.join(hop_dir, "final", "status.json"), "r") as f:
+                status = json.load(f)["status"]
+                print("Status of final ", hop_dir, " is: ", status)
+        else:
+            print("Status of final ", hop_dir, " is: ", "unknown")
+
+        print("==================================")
+
+    return None
+
+
+def print_neb_run_status_for_hop_envs(hop_env_dirs: list[str]) -> None:
+    """Print status of vasp calculation by reading
+    status.json in hop_env_dir
+
+    Parameters
+    ----------
+    hop_env_dirs : list[str]
+        list of hop env dirs where an neb run is
+        present
+
+    Returns
+    -------
+    None
+
+    """
+    for hop_dir in hop_env_dirs:
+        if os.path.isfile(os.path.join(hop_dir, "status.json")):
+            with open(os.path.join(hop_dir, "init", "status.json"), "r") as f:
+                status = json.load(f)["status"]
+                print("Status of NEB run in ", hop_dir, " is: ", status)
+        else:
+            print("Status of NEB run in ", hop_dir, " is: ", "unknown")
+
+        print("==================================")
+
+    return None
+
+
+def setup_nebs_for_hop_envs(
+    hop_env_dirs: list[str],
+    neb_input_file_dir: str,
+    submit_file_path="submit.sh",
+    toss_file_path="toss_files.txt",
+) -> None:
     """Setup NEB calculations for hop_env_dir by
     making images from CONTCARs from init/run.final and
     final/run.final. Also copy input files INCAR, KPOINTS,
@@ -1477,6 +1547,10 @@ def setup_nebs_for_hops(hop_env_dirs: list[str], neb_input_file_dir: str) -> Non
     neb_input_file_dir : str
         Path to dir where there are input files
         for NEB calculations
+    submit_file_path : str
+        path to submit file to be written
+    toss_file_path : str
+        path to toss file to be written
 
     Returns
     -------
@@ -1578,30 +1652,23 @@ def setup_nebs_for_hops(hop_env_dirs: list[str], neb_input_file_dir: str) -> Non
     submit_str += " cd ../\n"
     submit_str += "done\n"
 
-    with open("./submit.sh", "w") as f:
+    with open(submit_file_path, "w") as f:
         f.write(submit_str)
 
-    with open("./toss_files.txt", "w") as f:
+    with open(toss_file_path, "w") as f:
+        toss_str += submit_file_path + "\n"
         f.write(toss_str)
 
     return None
 
 
-def analyze_and_resubmit_nebs_for_hops(
-    hop_env_dirs: list[str], dry_run: bool = False
-) -> None:
-    """Resubmit incomplete NEB calculations for hop_env_dir
-    If NEB calculation is finished, it will be analyzed by
-    doing nebresults.pl. Else CONTCARs from each image
-    are copied over as POSCARs for continuing NEB run
+def analyze_nebs_for_hop_envs(hop_env_dirs: list[str]) -> None:
+    """Analyzes NEB runs by running nebresults.pl
 
     Parameters
     ----------
     hop_env_dirs : list[str]
         list of hop environment directories
-    dry_run : bool
-        If True, will only print what calculations
-        are done and what are not done
 
     Returns
     -------
@@ -1609,28 +1676,17 @@ def analyze_and_resubmit_nebs_for_hops(
 
     """
     cwd = os.getcwd()
-    toss_str = ""
-    submit_str = "#!/bin/bash\n"
-    submit_str += "configs=(\n"
-
-    neb_relaxandstatic_name = [
-        file for file in os.listdir(hop_env_dirs[0]) if "relaxandstatic" in file
-    ][0]
     for hop_dir in hop_env_dirs:
-        # get status of neb calculations
         if os.path.isfile(os.path.join(hop_dir, "status.json")):
             with open(os.path.join(hop_dir, "status.json"), "r") as f:
                 status = json.load(f)["status"]
-        else:
+
+        elif os.path.isfile(os.path.join(hop_dir, "stdout")):
             with open(os.path.join(hop_dir, "stdout"), "r") as f:
                 if "reached required accuracy" in f.read():
                     status = "complete"
-                else:
-                    status = "started"
-
-        if dry_run:
-            print("NEB calculation for ", hop_dir, " is ", status)
-            continue
+        else:
+            status = "incomplete"
 
         if status == "complete":
             # copy init OUTCAR to 00/
@@ -1668,6 +1724,55 @@ def analyze_and_resubmit_nebs_for_hops(
             os.chdir(cwd)
 
         else:
+            print("CANNOT ANALYZE. NEB calculation is incomplete in ", hop_dir)
+            print("=========================================")
+
+
+def setup_neb_reruns_for_hop_envs(
+    hop_env_dirs: list[str],
+    submit_file_path="submit.sh",
+    toss_file_path="toss_files.txt",
+) -> None:
+    """Resubmit incomplete NEB calculations for hop_env_dir
+    If NEB calculation is finished, it will be analyzed by
+    doing nebresults.pl. Else CONTCARs from each image
+    are copied over as POSCARs for continuing NEB run
+
+    Parameters
+    ----------
+    hop_env_dirs : list[str]
+        list of hop environment directories
+    submit_file_path : str
+        path to submit file to be written
+    toss_file_path : str
+        path to toss file to be written
+
+    Returns
+    -------
+    None
+
+    """
+    cwd = os.getcwd()
+    toss_str = ""
+    submit_str = "#!/bin/bash\n"
+    submit_str += "configs=(\n"
+
+    neb_relaxandstatic_name = [
+        file for file in os.listdir(hop_env_dirs[0]) if "relaxandstatic" in file
+    ][0]
+    for hop_dir in hop_env_dirs:
+        # get status of neb calculations
+        if os.path.isfile(os.path.join(hop_dir, "status.json")):
+            with open(os.path.join(hop_dir, "status.json"), "r") as f:
+                status = json.load(f)["status"]
+        else:
+            with open(os.path.join(hop_dir, "stdout"), "r") as f:
+                if "reached required accuracy" in f.read():
+                    status = "complete"
+                else:
+                    status = "started"
+
+        if status != "complete":
             # Figure out max run_ dir
             run_dirs = [
                 int(dir.replace("run_", ""))
@@ -1729,26 +1834,38 @@ def analyze_and_resubmit_nebs_for_hops(
     submit_str += "done\n"
 
     if toss_str != "":
-        with open("./submit.sh", "w") as f:
+        with open(submit_file_path, "w") as f:
             f.write(submit_str)
 
-        with open("./toss_files.txt", "w") as f:
+        with open(toss_file_path, "w") as f:
+            toss_str += submit_file_path + "\n"
             f.write(toss_str)
+
+    else:
+        print("All the calculations are done. Nothing to do")
 
     return None
 
 
-def get_transf_mat_to_scel(prim_lattice: np.ndarray, scel_lattice: np.ndarray):
-    """TODO: Docstring for get_transf_mat_to_scel_from_properties_dict.
+def get_transf_mat_to_scel(
+    prim_lattice: np.ndarray, scel_lattice: np.ndarray
+) -> np.ndarray:
+    """Given a primitive and supercell lattice,
+    find the approximate transformation matrix
+    that takes primitive to supercell
 
     Parameters
     ----------
-    prim_lattice : TODO
-     : TODO
+    prim_lattice : np.ndarray
+        Primitive lattice as column vectors
+    scel_lattice : np.ndarray
+        Supercell lattice as column vectors
 
     Returns
     -------
-    TODO
+    np.ndarray
+        Transformation matrix which can be applied
+        to prim lattice to get scel lattice as  S = P * T
 
     """
     return np.rint(np.linalg.inv(prim_lattice) @ scel_lattice)
