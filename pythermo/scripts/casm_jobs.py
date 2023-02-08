@@ -5,34 +5,6 @@ import subprocess
 import pythermo.jobs as pyjobs
 
 
-def _sanitize_bool_args(arg: str) -> bool:
-    """Given an argument, return the corresponding boolean value
-
-    Parameters
-    ----------
-    arg : str
-        bool argument passed a string
-
-    Returns
-    -------
-    bool
-        If arg starts with 't', returns True
-        If arg starts with 'f', returns False
-
-    Raises
-    ------
-    RuntimeError
-        If an argument starts with any other letter other than 't' or 'f'
-
-    """
-    if arg.lower()[0] == "t":
-        return True
-    elif arg.lower()[0] == "f":
-        return False
-    else:
-        raise RuntimeError("Could not convert " + arg + " to a boolean value.")
-
-
 def _configuration_list(filename: str) -> list[dict]:
     """Returns a configuration list from
     a given filename
@@ -147,32 +119,32 @@ def add_toss_arguments(subparser: argparse.ArgumentParser) -> None:
 
     subparser.add_argument(
         "--incar",
-        nargs="?",
-        default="True",
+        default=True,
+        action=argparse.BooleanOptionalAction,
         help="Whether to write incar (default=True)",
     )
     subparser.add_argument(
         "--poscar",
-        nargs="?",
-        default="True",
+        default=True,
+        action=argparse.BooleanOptionalAction,
         help="Whether to write poscar (default=True)",
     )
     subparser.add_argument(
         "--kpoints",
-        nargs="?",
-        default="True",
+        default=True,
+        action=argparse.BooleanOptionalAction,
         help="Whether to write kpoints (default=True)",
     )
     subparser.add_argument(
         "--potcar",
-        nargs="?",
-        default="True",
+        default=True,
+        action=argparse.BooleanOptionalAction,
         help="Whether to write potcar (default=True)",
     )
     subparser.add_argument(
         "--relaxandstatic",
-        nargs="?",
-        default="True",
+        default=True,
+        action=argparse.BooleanOptionalAction,
         help="Whether to write relaxandstatic.sh (default=True)",
     )
 
@@ -209,8 +181,8 @@ def add_submit_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     subparser.add_argument(
         "--re-run",
-        nargs="?",
-        default="False",
+        default=False,
+        action=argparse.BooleanOptionalAction,
         help="If true, sets up continuing vasp run by copying POSCAR from CONTCAR of max run.",
     )
 
@@ -363,14 +335,14 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     relax.add_argument(
         "--dry-run",
-        type=str,
-        default="False",
+        default=False,
+        action=argparse.BooleanOptionalAction,
         help="If true, writes the status of vasp runs in init and final dirs of hop envs",
     )
     relax.add_argument(
         "--re-run",
-        nargs="?",
-        default="False",
+        default=False,
+        action=argparse.BooleanOptionalAction,
         help="If true, sets up continuing vasp run in incomplete init and final dirs",
     )
 
@@ -394,21 +366,21 @@ def add_hop_arguments(subparser: argparse.ArgumentParser) -> None:
     )
     neb.add_argument(
         "--dry-run",
-        type=str,
-        default="False",
-        help="If dry run, only status of each NEB hop is printed",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="If dry run, only status of each NEB hop is printed (default=False)",
     )
     neb.add_argument(
         "--re-run",
-        nargs="?",
-        default="False",
-        help="If true, sets up continuing NEB runs for hop env dirs",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="If true, sets up continuing NEB runs for hop env dirs (default=False)",
     )
     neb.add_argument(
         "--analyze",
         "-a",
-        nargs="?",
-        default="False",
+        default=False,
+        action=argparse.BooleanOptionalAction,
         help="If true, analyzes completed NEB runs",
     )
     neb.add_argument(
@@ -444,11 +416,11 @@ def execute_toss(args: argparse.ArgumentParser) -> None:
     toss_str = pyjobs.casm_jobs.toss_file_str(
         selection,
         args.calctype,
-        _sanitize_bool_args(args.incar),
-        _sanitize_bool_args(args.poscar),
-        _sanitize_bool_args(args.kpoints),
-        _sanitize_bool_args(args.potcar),
-        _sanitize_bool_args(args.relaxandstatic),
+        args.incar,
+        args.poscar,
+        args.kpoints,
+        args.potcar,
+        args.relaxandstatic,
     )
 
     with open(args.outfile, "w") as f:
@@ -472,7 +444,7 @@ def execute_submit(args: argparse.ArgumentParser) -> None:
     """
     selection = _configuration_list(args.infile)
 
-    if _sanitize_bool_args(args.re_run):
+    if args.re_run:
         pyjobs.casm_jobs.setup_continuing_vasp_runs_for_given_configs(
             selection, args.calctype
         )
@@ -624,7 +596,7 @@ def execute_hop(args: argparse.ArgumentParser) -> None:  # noqa: C901
     Parameters
     ----------
     args : argparse.ArgumentParser
-        modify magmom arguments
+        hop arguments
 
     Returns
     -------
@@ -640,14 +612,14 @@ def execute_hop(args: argparse.ArgumentParser) -> None:  # noqa: C901
         if args.submit is None:
             args.submit = "submit.sh"
 
-        if _sanitize_bool_args(args.dry_run):
+        if args.dry_run:
             pyjobs.casm_jobs.print_vasp_relax_run_status_for_hop_envs(hop_env_dirs)
 
         else:
             if vasp_input_dir is None:
                 raise RuntimeError("Vasp input dir argument is required")
 
-            if not _sanitize_bool_args(args.re_run):
+            if not args.re_run:
                 pyjobs.casm_jobs.setup_vasp_relax_runs_for_hop_envs(
                     hop_env_dirs, vasp_input_dir, args.submit, args.toss
                 )
@@ -666,17 +638,17 @@ def execute_hop(args: argparse.ArgumentParser) -> None:  # noqa: C901
         if args.submit is None:
             args.submit = "submit.sh"
 
-        if _sanitize_bool_args(args.dry_run):
+        if args.dry_run:
             pyjobs.casm_jobs.print_neb_run_status_for_hop_envs(hop_env_dirs)
 
-        elif _sanitize_bool_args(args.analyze):
+        elif args.analyze:
             pyjobs.casm_jobs.analyze_nebs_for_hop_envs(hop_env_dirs)
 
         else:
             if vasp_input_dir is None:
                 raise RuntimeError("Vasp input dir argument is required")
 
-            if not _sanitize_bool_args(args.re_run):
+            if not args.re_run:
                 pyjobs.casm_jobs.setup_nebs_for_hop_envs(
                     hop_env_dirs, vasp_input_dir, args.submit, args.toss
                 )

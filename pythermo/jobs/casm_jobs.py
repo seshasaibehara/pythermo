@@ -1518,6 +1518,13 @@ def print_neb_run_status_for_hop_envs(hop_env_dirs: list[str]) -> None:
             with open(os.path.join(hop_dir, "init", "status.json"), "r") as f:
                 status = json.load(f)["status"]
                 print("Status of NEB run in ", hop_dir, " is: ", status)
+
+        elif os.path.isfile(os.path.join(hop_dir, "stdout")):
+            with open(os.path.join(hop_dir, "stdout"), "r") as f:
+                if "reached required accuracy" in f.read():
+                    print("Status of NEB run in ", hop_dir, " is: complete")
+                else:
+                    print("Status of NEB run in ", hop_dir, " is: started")
         else:
             print("Status of NEB run in ", hop_dir, " is: ", "unknown")
 
