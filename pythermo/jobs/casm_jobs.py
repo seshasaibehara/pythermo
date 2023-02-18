@@ -1050,19 +1050,17 @@ def properties_json_from_relaxation_dir(relaxation_dir: str) -> dict:
 
     contcar_path = os.path.join(relaxation_dir, "CONTCAR")
 
-    contcar = pmgvasp.Poscar.from_file(contcar_path)
-    relaxed_structure = contcar.structure
+    relaxed_structure = pmgvasp.Poscar.from_file(
+        contcar_path, check_for_POTCAR=False
+    ).structure
 
     properties = dict()
 
-    # write structure info
-    atom_types = []
-    for atom_symbol, natom in zip(contcar.site_symbols, contcar.natoms):
-        atom_types += [atom_symbol] * natom
-
-    properties["atom_type"] = atom_types
+    properties["atom_type"] = [site.specie.symbol for site in relaxed_structure.sites]
     properties["coordinate_mode"] = "Direct"
-    properties["atom_coords"] = relaxed_structure.frac_coords.tolist()
+    properties["atom_coords"] = [
+        site.frac_coords.tolist() for site in relaxed_structure.sites
+    ]
     properties["lattice_vectors"] = relaxed_structure.lattice.matrix.tolist()
 
     outcar_path = os.path.join(relaxation_dir, "OUTCAR")
