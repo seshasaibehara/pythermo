@@ -24,10 +24,11 @@ def test_ternary_corr_indices_corresponding_to_binary_corrs(root_pytest_dir: str
     ) as f:
         ternary_basis_dict = json.load(f)
 
-    ternary_corr_indices_corresponding_to_binary_corr = (
-        pyternary.ternary_corr_indices_corresponding_to_binary_corr(
-            ternary_basis_dict, binary_basis_dict
-        )
+    (
+        ternary_corr_indices_corresponding_to_binary_corr,
+        _,
+    ) = pyternary.ternary_corr_indices_corresponding_to_binary_corr(
+        ternary_basis_dict, binary_basis_dict
     )
 
     assert ternary_corr_indices_corresponding_to_binary_corr == [
