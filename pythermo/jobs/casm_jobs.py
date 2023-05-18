@@ -372,7 +372,9 @@ def modify_incar_magmoms(
         for calctype_dir in calctype_dirs
     ]
     poscars = [
-        pmgvasp.Poscar.from_file(os.path.join(calctype_dir, "POSCAR"))
+        pmgvasp.Poscar.from_file(
+            os.path.join(calctype_dir, "POSCAR"), check_for_POTCAR=False
+        ).structure
         for calctype_dir in calctype_dirs
     ]
 
@@ -380,7 +382,7 @@ def modify_incar_magmoms(
     provided_magmoms = new_magmoms["magmoms"]
 
     modifed_incars = []
-    for incar, poscar in zip(incars, poscars):
+    for incar, struc in zip(incars, poscars):
         # if noncollinear calculations are found in INCAR, STOP!
         incar_keys = list(incar.keys())
         if "LNONCOLLINEAR" in incar_keys or "LSORBIT" in incar_keys:
@@ -389,29 +391,29 @@ def modify_incar_magmoms(
         # get the updated magnetic moments for each atom type
         # if magenetic moment for an atom type is not provided, use the one already in incar
         modified_magmoms = []
-        index = 0
-        for n, atom_type in zip(poscar.natoms, poscar.site_symbols):
-            # get old magmoms for a particular atom type
-            magmom = np.array(incar["MAGMOM"][index : index + n])
+        for index, site in enumerate(struc.sites):
+            # get old magmoms for the site
+            magmom = np.array(incar["MAGMOM"][index])
 
             # if atom type is what you want to change
-            if atom_type in provided_atom_types:
-                new_magmom = provided_magmoms[provided_atom_types.index(atom_type)]
+            if site.specie.symbol in provided_atom_types:
+                new_magmom = provided_magmoms[
+                    provided_atom_types.index(site.specie.symbol)
+                ]
 
                 # if all magmoms of a particular atom type needs to be replaced
                 if isinstance(new_magmom, float):
                     magmom = [
-                        provided_magmoms[provided_atom_types.index(atom_type)]
-                    ] * n
+                        provided_magmoms[provided_atom_types.index(site.specie.symbol)]
+                    ]
 
                 # if magmoms of a particular atom type needs to be changed value by value
                 if isinstance(new_magmom, dict):
                     for value, new_value in zip(
                         new_magmom["values"], new_magmom["new_values"]
                     ):
-                        magmom = np.where(np.isclose(magmom, value), new_value, magmom)
-
-            index += n
+                        if np.allclose(value, magmom):
+                            magmom = new_value
 
             modified_magmoms.extend(magmom)
 
@@ -1050,19 +1052,17 @@ def properties_json_from_relaxation_dir(relaxation_dir: str) -> dict:
 
     contcar_path = os.path.join(relaxation_dir, "CONTCAR")
 
-    contcar = pmgvasp.Poscar.from_file(contcar_path)
-    relaxed_structure = contcar.structure
+    relaxed_structure = pmgvasp.Poscar.from_file(
+        contcar_path, check_for_POTCAR=False
+    ).structure
 
     properties = dict()
 
-    # write structure info
-    atom_types = []
-    for atom_symbol, natom in zip(contcar.site_symbols, contcar.natoms):
-        atom_types += [atom_symbol] * natom
-
-    properties["atom_type"] = atom_types
+    properties["atom_type"] = [site.specie.symbol for site in relaxed_structure.sites]
     properties["coordinate_mode"] = "Direct"
-    properties["atom_coords"] = relaxed_structure.frac_coords.tolist()
+    properties["atom_coords"] = [
+        site.frac_coords.tolist() for site in relaxed_structure.sites
+    ]
     properties["lattice_vectors"] = relaxed_structure.lattice.matrix.tolist()
 
     outcar_path = os.path.join(relaxation_dir, "OUTCAR")
