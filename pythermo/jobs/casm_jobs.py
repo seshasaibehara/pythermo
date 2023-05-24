@@ -8,7 +8,9 @@ import pymatgen.io.vasp as pmgvasp
 from pymatgen.io.cif import CifWriter
 
 
-def _get_file_paths_as_a_string(file_type: str, calctype_dirs: list[str]) -> str:
+def _get_file_paths_as_a_string(
+    file_type: str, calctype_dirs: list[str], globus_batch_style: bool = False
+) -> str:
     """Return file paths in casm configurations' calctype directory
     filetype can be anything like INCAR, KPOINTS, POTCAR, etc
 
@@ -18,6 +20,8 @@ def _get_file_paths_as_a_string(file_type: str, calctype_dirs: list[str]) -> str
         file_type like INCAR, KPOINTS, POTCAR etc.
     calctype_dirs : list[str]
         list of all configurations calctype directories
+    globus_batch_style : bool, optional
+        write file paths compatible with globus batch style
 
     Returns
     -------
@@ -30,7 +34,10 @@ def _get_file_paths_as_a_string(file_type: str, calctype_dirs: list[str]) -> str
     ]
     file_path_str = ""
     for file_path in file_paths:
-        file_path_str += file_path + "\n"
+        if globus_batch_style:
+            file_path_str += file_path + " " + file_path + "\n"
+        else:
+            file_path_str += file_path + "\n"
 
     return file_path_str
 
@@ -80,11 +87,7 @@ def _get_calctype_dirs(selected_configurations: list[dict], calctype: str) -> li
 def toss_file_str(
     selected_configurations: list[dict],
     calctype: str = "default",
-    write_incar: bool = True,
-    write_poscar: bool = True,
-    write_kpoints: bool = True,
-    write_potcar: bool = True,
-    write_relaxandstatic: bool = True,
+    globus_batch_style: bool = False,
 ) -> str:
     """For a given list of configurations in ccasm query json format,
     return a string which can be used in conjuction with rsync --files-from
@@ -97,16 +100,8 @@ def toss_file_str(
         list of configurations in ccasm query json format
     calctype : str, optional
         ccasm calctype
-    write_incar : bool, optional
-        whether to include incar (default=True)
-    write_poscar : bool, optional
-        whether to include poscar (default=True)
-    write_kpoints : bool, optional
-        whether to include kpoints (default=True)
-    write_potcar : bool, optional
-        whether to include potcar (default=True)
-    write_relaxandstatic : bool, optional
-        whether to include relaxandstatic.sh (default=True)
+    globus_batch_style : bool, optional
+        whether to write input files in globus batch style
 
     Returns
     -------
@@ -117,16 +112,21 @@ def toss_file_str(
     calctype_dirs = _get_calctype_dirs(selected_configurations, calctype)
 
     toss_file_str = ""
-    if write_incar:
-        toss_file_str += _get_file_paths_as_a_string("INCAR", calctype_dirs)
-    if write_kpoints:
-        toss_file_str += _get_file_paths_as_a_string("KPOINTS", calctype_dirs)
-    if write_poscar:
-        toss_file_str += _get_file_paths_as_a_string("POSCAR", calctype_dirs)
-    if write_potcar:
-        toss_file_str += _get_file_paths_as_a_string("POTCAR", calctype_dirs)
-    if write_relaxandstatic:
-        toss_file_str += _get_file_paths_as_a_string("relaxandstatic.sh", calctype_dirs)
+    toss_file_str += _get_file_paths_as_a_string(
+        "INCAR", calctype_dirs, globus_batch_style
+    )
+    toss_file_str += _get_file_paths_as_a_string(
+        "KPOINTS", calctype_dirs, globus_batch_style
+    )
+    toss_file_str += _get_file_paths_as_a_string(
+        "POSCAR", calctype_dirs, globus_batch_style
+    )
+    toss_file_str += _get_file_paths_as_a_string(
+        "POTCAR", calctype_dirs, globus_batch_style
+    )
+    toss_file_str += _get_file_paths_as_a_string(
+        "relaxandstatic.sh", calctype_dirs, globus_batch_style
+    )
 
     return toss_file_str
 
