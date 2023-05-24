@@ -10,6 +10,7 @@ setuptools.setup(
         "pythermo.xtal",
         "pythermo.scripts",
         "pythermo.mc",
+        "pythermo.ml",
     ],
     entry_points={"console_scripts": ["casm-jobs=pythermo.scripts.casm_jobs:main"]},
     install_requires=[
@@ -21,6 +22,7 @@ setuptools.setup(
         "scikit-learn",
         "matplotlib",
         "pystan",
+        "ase",
     ],
     python_requires=">=3.10",
 )

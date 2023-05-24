@@ -118,34 +118,11 @@ def add_toss_arguments(subparser: argparse.ArgumentParser) -> None:
     _add_calctype_argument(subparser)
 
     subparser.add_argument(
-        "--incar",
-        default=True,
+        "--globus",
+        "-g",
+        default=False,
         action=argparse.BooleanOptionalAction,
-        help="Whether to write incar (default=True)",
-    )
-    subparser.add_argument(
-        "--poscar",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Whether to write poscar (default=True)",
-    )
-    subparser.add_argument(
-        "--kpoints",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Whether to write kpoints (default=True)",
-    )
-    subparser.add_argument(
-        "--potcar",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Whether to write potcar (default=True)",
-    )
-    subparser.add_argument(
-        "--relaxandstatic",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Whether to write relaxandstatic.sh (default=True)",
+        help="Whether to use globus batch file format (default=False)",
     )
 
 
@@ -416,11 +393,7 @@ def execute_toss(args: argparse.ArgumentParser) -> None:
     toss_str = pyjobs.casm_jobs.toss_file_str(
         selection,
         args.calctype,
-        args.incar,
-        args.poscar,
-        args.kpoints,
-        args.potcar,
-        args.relaxandstatic,
+        args.globus,
     )
 
     with open(args.outfile, "w") as f:
