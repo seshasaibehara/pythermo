@@ -30,9 +30,9 @@ def cubic_strain_order_parameters(hencky_strain: np.ndarray) -> np.ndarray:
     q1 = (Exx + Eyy + Ezz) / np.sqrt(3)
     q2 = (Exx - Eyy) / np.sqrt(2)
     q3 = ((2 * Ezz) - Exx - Eyy) / np.sqrt(6)
-    q4 = Eyz / np.sqrt(2)
-    q5 = Exz / np.sqrt(2)
-    q6 = Exy / np.sqrt(2)
+    q4 = Eyz
+    q5 = Exz
+    q6 = Exy
     return np.array([q1, q2, q3, q4, q5, q6])
 
 
@@ -72,9 +72,7 @@ def symmetrically_equivalent_e2e3s(
     mirror_e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in mirror_e2e3s])
     e2e3_120s = np.array([rot_120 @ e2e3 for e2e3 in e2e3s])
     e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in e2e3s])
-    return np.vstack(
-        (e2e3_120s, e2e3_240s, mirror_e2e3s, mirror_e2e3_120s, mirror_e2e3_240s)
-    )
+    return (e2e3_120s, e2e3_240s, mirror_e2e3s, mirror_e2e3_120s, mirror_e2e3_240s)
 
 
 def plot_e2e3_strain_energies(
@@ -136,8 +134,10 @@ def plot_e2e3_strain_energies(
         plotting_options[key] = value
 
     if plot_equivalents:
-        e2e3s_equiv = symmetrically_equivalent_e2e3s(e2e3s)
-        all_e2e3s = np.vstack((e2e3s, e2e3s_equiv))
+        equivs0, equivs1, equivs2, equivs3, equivs4 = symmetrically_equivalent_e2e3s(
+            e2e3s
+        )
+        all_e2e3s = np.vstack((e2e3s, equivs0, equivs1, equivs2, equivs3, equivs4))
         all_e2s = all_e2e3s[:, 0]
         all_e3s = all_e2e3s[:, 1]
         all_energies = np.hstack(
