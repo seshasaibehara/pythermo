@@ -29,8 +29,11 @@ def ground_state_indices(
     binary_hull = thull.full_hull(comps, formation_energies)
     lower_hull = thull.lower_hull(binary_hull)
 
-    ground_state_indices = lower_hull[0].tolist()
-    ground_state_indices.sort(key=lambda index: comps[index])
+    ground_state_indices = lower_hull[0]
+
+    ground_state_comps = np.ravel(comps[ground_state_indices])
+    ground_state_indices = ground_state_indices[np.argsort(ground_state_comps)].tolist()
+
     return ground_state_indices
 
 
