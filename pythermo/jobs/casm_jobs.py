@@ -172,6 +172,7 @@ def submit_script_str(
     if queue_type == "pbs":
         submit_str += " qsub relaxandstatic.sh\n"
     elif queue_type == "slurm":
+        submit_str += ' echo "{\\"status\\": \\"submitted\\"}" > status.json\n'
         submit_str += " sbatch relaxandstatic.sh\n"
     else:
         raise RuntimeError("Invalid queue (" + queue_type + ")")
