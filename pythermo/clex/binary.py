@@ -228,7 +228,7 @@ def default_on_hull_plotting_options() -> dict:
 
     """
     return dict(
-        color="tab:green",
+        color="#d95f02",
         marker="s",
         facecolors="none",
         linewidth=2.0,
@@ -245,7 +245,7 @@ def default_not_on_hull_plotting_options() -> dict:
 
     """
     return dict(
-        color="tab:green",
+        color="#7570b3",
         alpha=0.75,
         s=54,
     )

@@ -414,7 +414,7 @@ def modify_incar_magmoms(
                         new_magmom["values"], new_magmom["new_values"]
                     ):
                         if np.allclose(value, magmom):
-                            magmom = new_value
+                            magmom = [new_value]
 
             modified_magmoms.extend(magmom)
 
