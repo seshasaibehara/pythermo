@@ -75,6 +75,41 @@ def symmetrically_equivalent_e2e3s(
     return (e2e3_120s, e2e3_240s, mirror_e2e3s, mirror_e2e3_120s, mirror_e2e3_240s)
 
 
+def get_all_equivalents(e2e3s, energies):
+    """TODO: Docstring for get_all_equivalents.
+    Returns
+    -------
+    TODO
+
+    """
+    rot_120 = np.array(
+        [
+            [-1 / 2, -np.sqrt(3) / 2],
+            [np.sqrt(3) / 2, -1 / 2],
+        ]
+    )
+    rot_240 = np.array(
+        [
+            [-1 / 2, np.sqrt(3) / 2],
+            [-np.sqrt(3) / 2, -1 / 2],
+        ]
+    )
+
+    mirror_e2e3s = np.array([[-e2e3[0], e2e3[1]] for e2e3 in e2e3s])
+    mirror_e2e3_120s = np.array([rot_120 @ e2e3 for e2e3 in mirror_e2e3s])
+    mirror_e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in mirror_e2e3s])
+    e2e3_120s = np.array([rot_120 @ e2e3 for e2e3 in e2e3s])
+    e2e3_240s = np.array([rot_240 @ e2e3 for e2e3 in e2e3s])
+
+    all_e2e3s = np.vstack(
+        (e2e3s, mirror_e2e3s, mirror_e2e3_120s, mirror_e2e3_240s, e2e3_120s, e2e3_240s)
+    )
+    all_energies = np.hstack(
+        (energies, energies, energies, energies, energies, energies)
+    )
+    return all_e2e3s, all_energies
+
+
 def plot_e2e3_strain_energies(
     ax: plt.axis,
     e2e3s: np.ndarray,
